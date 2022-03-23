@@ -3,6 +3,7 @@ import torch
 import torch.nn as  nn
 import torch.nn.functional as F
 from timm.models.layers import DropPath
+from torch.hub import load_state_dict_from_url
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, downsample=None, drop_path=0, stride=1):
@@ -43,11 +44,11 @@ class Bottleneck(nn.Module):
         super().__init__()
 
         self.expansion = 4
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
-        self.conv3 = nn.Conv2d(out_channels, self.expansion*out_channels, kernel_size=1, stride=1, padding=0)
+        self.conv3 = nn.Conv2d(out_channels, self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn3 = nn.BatchNorm2d(self.expansion*out_channels)
 
         self.relu = nn.ReLU()
@@ -144,7 +145,7 @@ class ResNet(nn.Module):
         layers = []
 
         if stride != 1 or self.inplanes != dim*self.expansion:
-            downsample = nn.Sequential(nn.Conv2d(self.inplanes, dim*self.expansion, kernel_size=1, stride=stride),
+            downsample = nn.Sequential(nn.Conv2d(self.inplanes, dim*self.expansion, kernel_size=1, stride=stride, bias=False),
                                    nn.BatchNorm2d(dim*self.expansion))
         else:
             downsample = None
@@ -157,6 +158,28 @@ class ResNet(nn.Module):
             layers.append(block(self.inplanes, dim, drop_path=drop_path[i+1]))
 
         return nn.Sequential(*layers)
+
+def resnet50(pretrained=False, progress=True, **kwargs):
+
+    model = ResNet(Bottleneck, 50, num_classes=1000, **kwargs)
+
+    if pretrained:
+        state_dict = load_state_dict_from_url("https://download.pytorch.org/models/resnet50-0676ba61.pth", progress=progress)
+        model.load_state_dict(state_dict)
+
+    return model
+
+
+
+
+
+
+
+
+
+
+
+
 
 
         
