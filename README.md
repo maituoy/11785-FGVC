@@ -3,7 +3,7 @@ Repo for the course project of 11785 Introduction to Deep Learning
 
 ## Usage
 
-## Accuracy
+## Accuracy for baseline models
 | Model | Image size | Input size | #params | Top 1 Acc. | Dataset | Pretrained |
 |:---:|:---:|:---:|:---:| :---:|:---:|:---:|
 | Resnet50 | 256x256 | 224x224 | 25M | 78.4% | CUB2011 | True |
