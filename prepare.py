@@ -16,7 +16,7 @@ def set_up(model, device, lr, weight_decay, len_train, epochs):
     model = model
     model.to(device)
 
-    criterion = torch.nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+    criterion = torch.nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=(len_train * epochs))
 
