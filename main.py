@@ -1,4 +1,4 @@
-from Models import ResNet
+from Models.ResNet import *
 from Dataset import *
 from prepare import *
 
