@@ -57,6 +57,7 @@ def main():
     len_train = len(train_loader)
 
     model = resnet50(pretrained=True)
+    model.fc = nn.Linear(2048, 200)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
