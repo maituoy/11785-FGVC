@@ -7,7 +7,7 @@ Repo for the course project of 11785 Introduction to Deep Learning
 | Model | Image size | Input size | #params | Top 1 Acc. | Dataset | Pretrained |
 |:---:|:---:|:---:|:---:| :---:|:---:|:---:|
 | Resnet50 | 256x256 | 224x224 | 25M | 78.4% | CUB2011 | True |
-| Resnet50 | 256x256 | 224x224 | 25M |  | CUB2011 | False |
+| Resnet50 | 256x256 | 224x224 | 25M | 38.5% | CUB2011 | False |
 | ConvNeXt-T(iso) | 256x256 | 224x224 |  |  | CUB2011 | True |
 | ConvNeXt-T(iso) | 256x256 | 224x224 |  |  | CUB2011 | False |
 | ViT-S16 | 256x256 | 224x224 |  |  | CUB2011 | True |
