@@ -13,7 +13,7 @@ Repo for the course project of 11785 Introduction to Deep Learning
 | ViT-S16 | 256x256 | 224x224 |  |  | CUB2011 | True |
 | ViT-S16 | 256x256 | 224x224 |  |  | CUB2011 | False |
 | Resnet50 | 256x256 | 224x224 | 25M |  | Standford Dogs | True |
-| Resnet50 | 256x256 | 224x224 | 25M |  | Standford Dogs | False |
+| Resnet50 | 256x256 | 224x224 | 25M | 42.3% | Standford Dogs | False |
 | ConvNeXt-T(iso) | 256x256 | 224x224 |  |  | Standford Dogs | True |
 | ConvNeXt-T(iso) | 256x256 | 224x224 |  |  | Standford Dogs | False |
 | ViT-S16 | 256x256 | 224x224 |  |  | Standford Dogs | True |
