@@ -65,7 +65,7 @@ class EncoderBlock(nn.Module):
 
         input_x = x.clone()
         x = self.ln_1(x)
-        x, _ = self.self_attention(query=x, key=x, value=x, need_weights=False)
+        x = self.self_attention(x)
         x = self.dropout(x)
         x += input_x
 
