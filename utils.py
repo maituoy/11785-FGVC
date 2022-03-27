@@ -106,14 +106,14 @@ def convert_jax_pytorch(keys, values):
         elif num_dim == 3 and torch_names[-1] == 'weight' and torch_names[-2] in ['q', 'k', 'v']:
             feat_dim, num_heads, head_dim = tensor_value.shape
             # for multi head attention q/k/v weight
-            tensor_value = tensor_value.reshape(feat_dim, num_heads*head_dim)
+            tensor_value = tensor_value.flatten(1).T
         elif num_dim == 2 and torch_names[-1] == 'bias' and torch_names[-2] in ['q', 'k', 'v']:
             # for multi head attention q/k/v bias
             tensor_value = tensor_value.reshape(-1)
         elif num_dim == 3 and torch_names[-1] == 'weight' and torch_names[-2] == 'out':
             # for multi head attention out weight
             num_heads, head_dim, feat_dim = tensor_value.shape
-            tensor_value = tensor_value.reshape(num_heads*head_dim, feat_dim)
+            tensor_value = tensor_value.reshape(num_heads*head_dim, feat_dim).T
         elif num_dim == 4 and torch_names[-1] == 'weight':
             tensor_value = tensor_value.permute(3, 2, 0, 1)
 
