@@ -18,5 +18,18 @@ Repo for the course project of 11785 Introduction to Deep Learning
 | ConvNeXt-T(iso) | 256x256 | 224x224 |  |  | Standford Dogs | False |
 | ViT-S16 | 256x256 | 224x224 | 22M |  | Standford Dogs | True |
 | ViT-S16 | 256x256 | 224x224 | 22M |  | Standford Dogs | False |
+|  |  |  |  |  |  |  |
+| Resnet50 | 512x512 | 448x448 | 25M |  | CUB2011 | True |
+| Resnet50 | 512x512 | 448x448 | 25M |  | CUB2011 | False |
+| ConvNeXt-T(iso) | 512x512 | 448x448 |  |  | CUB2011 | True |
+| ConvNeXt-T(iso) | 512x512 | 448x448 |  |  | CUB2011 | False |
+| ViT-S16 | 512x512 | 448x448 | 22M |  | CUB2011 | True |
+| ViT-S16 | 512x512 | 448x448 | 22M |  | CUB2011 | False |
+| Resnet50 | 512x512 | 448x448 | 25M |  | Standford Dogs | True |
+| Resnet50 | 512x512 | 448x448 | 25M |  | Standford Dogs | False |
+| ConvNeXt-T(iso) | 512x512 | 448x448 |  |  | Standford Dogs | True |
+| ConvNeXt-T(iso) | 512x512 | 448x448 |  |  | Standford Dogs | False |
+| ViT-S16 | 512x512 | 448x448 | 22M |  | Standford Dogs | True |
+| ViT-S16 | 512x512 | 448x448 | 22M |  | Standford Dogs | False |
 
 
