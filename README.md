@@ -34,6 +34,6 @@ Repo for the course project of 11785 Introduction to Deep Learning.
 | Resnet50 | 512x512 | 448x448 | 25M |  | CUB2011 | True |
 | ConvNeXt-T | 512x512 | 448x448 |  27M |  83.31% | CUB2011 | True |
 | ViT-S16 | 512x512 | 448x448 | 22M |  | CUB2011 | True |
-| Resnet50 | 512x512 | 448x448 | 25M |  | Standford Dogs | True |
+| Resnet50 | 512x512 | 448x448 | 25M | 85.3% | Standford Dogs | True |
 | ConvNeXt-T | 512x512 | 448x448 |  27M |  | Standford Dogs | True |
 | ViT-S16 | 512x512 | 448x448 | 22M |  | Standford Dogs | True |
