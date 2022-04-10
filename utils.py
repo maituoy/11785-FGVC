@@ -2,6 +2,7 @@ import os
 import torch
 from tensorflow.io import gfile
 import numpy as np
+import math
 
 import torch.nn.functional as F
 import torch.distributed as dist
@@ -150,3 +151,9 @@ def reduce_tensor(tensor):
     dist.all_reduce(rt, op=dist.ReduceOp.SUM)
     rt /= dist.get_world_size()
     return rt
+
+def get_parameter_num(model):
+    num_trainable_parameters = 0
+    for p in model.parameters():
+        num_trainable_parameters += p.numel()
+    return num_trainable_parameters

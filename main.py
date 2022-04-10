@@ -1,104 +1,130 @@
-from Models.ResNet import *
-from Dataset import *
-from prepare import *
-from utils import *
+from Models.ResNet import resnet50
+from Models.ViT import vit_s16
+from Dataset import create_dataloader
+from running import setup4training, train_one_epoch, val_one_epoch
+from utils import get_parameter_num
+from configs import config, update_cfg, preprocess_cfg
+from log import setup_default_logging
 
+import os
 import argparse
-from torch.nn.parallel import DistributedDataParallel as DDP
+import yaml
+import logging
+import random
+import numpy as np
+import torch
+import torch.nn as nn
+from torch.nn.parallel import DistributedDataParallel
+logger = logging.getLogger('train')
 
 def parse_argument():
 
-    parser = argparse.ArgumentParser(description='params')
-    parser.add_argument('-epochs', dest='epochs', type=int, default=100)
-    parser.add_argument('-bs', dest='bs', type=int, default=256)
-    parser.add_argument('-lr', dest='lr', type=float, default=0.03)
-    parser.add_argument('-wd', dest='wd', type=float, default=1e-3)
-    parser.add_argument('-img_size', dest='img_size', type=int, default=256)
-    parser.add_argument('-input_size', dest='input_size', type=int, default=224)
-    parser.add_argument('-dataset', dest='dataset', type=str, default='cub')
-    parser.add_argument('-ngpu_used', dest='ngpu_used', type=int, default=1)
+    parser = argparse.ArgumentParser(description='FGVC params')
+    parser.add_argument('--config', type=str, default='')
+    parser.add_argument('--local_rank', type=int, default=0)
 
-    return parser.parse_args()
+    return parser.parse_known_args()
 
 
-def main():
+def create_model(config):
 
-    args = parse_argument()
-    epochs = args.epochs
-    batch_size = args.bs
-    lr = args.lr
-    weight_decay = args.wd
-    img_size = args.img_size
-    input_size = args.input_size
-    dataset = args.dataset
-    ngpu_used = args.ngpu_used
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    ddp = 0
-    if ngpu_used > 1:
-        local_rank = int(os.environ["LOCAL_RANK"])
-        rank = int(os.environ["RANK"])
-        world_size = int(os.environ['WORLD_SIZE'])
-        n_gpus = torch.cuda.device_count()
+    name = config.model.backbone.name
+    num_classes = config.model.head.num_classes
+    pretrain = config.model.pretrained.pretrain
+    pretrained_path = config.model.pretrained.path
 
-        assert n_gpus >= ngpu_used, "GPU is not enough"
+    if name == 'resnet50':
+        if pretrain:
+            model = resnet50(pretrained=True)
+            model.fc = nn.Linear(2048, num_classes)
+        else:
+            model = resnet50(pretrained=False)
+            model.fc = nn.Linear(2048, num_classes)
 
-        torch.cuda.set_device(local_rank)
-        torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-        torch.distributed.barrier()
-        ddp += 1
+    elif name == 'vit_s16':
+        if pretrain:
+            model = vit_s16(config, pretrained=True)
+            model.head = nn.Linear(384, num_classes)
+        else:
+            model = vit_s16(config, pretrained=False)
+            model.head = nn.Linear(384, num_classes)
 
-    train_transforms = transforms.Compose([transforms.Resize((img_size, img_size), Image.BILINEAR),
-                                       transforms.RandomCrop((input_size, input_size)),
-                                       transforms.RandomHorizontalFlip(),
-                                       transforms.ToTensor(),
-                                       transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
-
-    test_transforms = transforms.Compose([transforms.Resize((img_size, img_size), Image.BILINEAR),
-                                           transforms.CenterCrop((input_size, input_size)),
-                                           transforms.ToTensor(),
-                                           transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])])
-
-    if dataset == 'cub':
-        train_dataset = CUB2011(root='/media/Bootes/dl_fgvc/', transform=train_transforms, train=True, extract=False)
-        test_dataset = CUB2011(root='/media/Bootes/dl_fgvc/', transform=test_transforms, train=False, extract=False)
-
-    elif dataset == 'dog':
-        train_dataset = StandfordDog(root='/media/Bootes/dl_fgvc/', transform=train_transforms, train=True, extract=False)
-        test_dataset = StandfordDog(root='/media/Bootes/dl_fgvc/', transform=test_transforms, train=False, extract=False)
-
-    if ddp:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-        test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size//ngpu_used, 
-                                                    shuffle=False, num_workers=8, sampler=train_sampler)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size//ngpu_used, 
-                                                shuffle=False, num_workers=8, sampler=test_sampler)
     else:
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=1)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=1)
+        raise NotImplementedError
 
-    len_train = len(train_loader)
+    return model
+def main():
+    setup_default_logging()
+    args, config_overrided = parse_argument()
+    print(args.config)
+    update_cfg(config, args.config, config_overrided)
+    preprocess_cfg(config, args.local_rank)
 
-    model = resnet50(pretrained=True)
-    model.fc = nn.Linear(2048, 200)
+    if 'WORLD_SIZE' in os.environ:
+        config.distributed = int(os.environ['WORLD_SIZE']) > 1
+    else:
+        config.distributed = False
+    
+    if config.distributed:
+        config.device = 'cuda:%d' % config.local_rank
+        torch.cuda.set_device(config.local_rank)
+        torch.distributed.init_process_group(backend='nccl', init_method='env://')
+        config.world_size = torch.distributed.get_world_size()
+        config.rank = torch.distributed.get_rank()
+        logger.info('Training in distributed mode with \
+                     multiple processes, 1 GPU per process.\
+                     Process {:d}, total {:d}.'.format(config.rank, config.world_size))
+    else:
+        config.device = 'cuda:0'
+        config.world_size = 1
+        config.rank = 0
+        logger.info('Training with a single process on 1 GPU.')
+
+    torch.manual_seed(config.seed + config.rank)
+    np.random.seed(config.seed + config.rank)
+    random.seed(config.seed + config.rank)
+    
+
+    model = create_model(config)
     model = model.cuda()
 
-    criterion, optimizer, scheduler, scaler = set_up(model, device, lr, weight_decay, len_train, epochs, warmup_epochs=5)
+    train_loader, val_loader = create_dataloader(config, logger)
+    
+    config.data.batches = len(train_loader)
 
-    if ddp:
-        model = DDP(model, device_ids=[local_rank])
+    optimizer, scheduler, scaler = setup4training(model, config)
 
-    for epoch in range(epochs):
-        if ddp:
-            train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler)
-            validate(model, test_loader, criterion)
-        else:
-            train_accuracy, train_loss, learning_rate = train(model, device, batch_size, train_loader, optimizer, criterion, scheduler, scaler)
-            print("Epoch {}/{}: Train Acc {:.04f}%, Train Loss {:.04f}, Learning Rate {:.04f}".format(epoch + 1, epochs, train_accuracy, train_loss, learning_rate))
+    num_epochs = config.optim.epochs + config.optim.warmup_epochs
 
-            if not (epoch + 1) % 10 and epoch > 0:
-                test_accuracy = evaluate(model, device, batch_size, test_loader, test_dataset)
-                print("Test: {:.04f}%".format(test_accuracy))
+    if config.distributed:
+        model = DistributedDataParallel(model, device_ids=[config.local_rank])
+
+    output_dir = None
+    eval_metric = config.eval_metric
+    best_metric = None
+    best_epoch = None
+    checkpoint_saver = None
+
+    if config.local_rank == 0:
+        output_dir = config.output_dir
+        with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
+            yaml.dump(config.to_dict(), f)
+    
+    if config.loss.name == 'ce':
+        criterion = nn.CrossEntropyLoss(label_smoothing=config.loss.label_smoothing)
+    else:
+        raise NotImplementedError
+
+    for epoch in range(num_epochs):
+
+        if config.distributed and hasattr(train_loader.sampler, 'set_epoch'):
+            train_loader.sampler.set_epoch(epoch)
+        
+        train_metrics = train_one_epoch(epoch, model, train_loader,
+                                        optimizer, criterion, scheduler,
+                                        scaler, config, logger)
+        eval_metrics = val_one_epoch(model, val_loader, criterion, config, logger)
+
 
 
 if __name__ == "__main__":

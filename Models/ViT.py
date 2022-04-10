@@ -1,6 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import sys
+sys.path.append('../')
+
+from utils import load_checkpoint, resize_pos_embed
 
 
 class Attention(nn.Module):
@@ -167,4 +171,32 @@ class ViT(nn.Module):
 
         return x
 
+
+def vit_s16(config, pretrained=False, **kwargs):
+
+    input_size = config.data.input_size
+    model = ViT(
+        img_size = input_size,
+        patch_size = 16,
+        num_layers = 12,
+        num_heads = 6,
+        hidden_dim = 384,
+        mlp_dim = 1536
+    )
+
+    if pretrained:
+        state_dict = load_checkpoint(config.model.pretrained.path)
+
+        if input_size == 224:
+            model.load_state_dict(state_dict)
         
+        elif input_size > 224:
+            posemb = state_dict['pos_embedding']
+            posemb_new = model.pos_embedding
+            pos_emb = resize_pos_embed(posemb, posemb_new)
+            state_dict['pos_embedding'] = pos_emb
+            model.load_state_dict(state_dict)
+    
+    return model
+
+
