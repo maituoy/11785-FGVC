@@ -23,6 +23,7 @@ config.train.cutmix_minmax = None
 config.train.mixup_prob = 1.0
 config.train.mixup_switch_prob = 0.5
 config.train.mixup_mode = "batch"
+config.train.nb_classes = 200
 
 # General configs
 config.exp = None
@@ -45,7 +46,7 @@ config.data.sampler.name = None
 config.data.sampler.param = dict()
 
 # Optimizer
-config.optim.name = 'adamW'
+config.optim.name = 'adamw'
 config.optim.lr = 0.002
 config.optim.weight_decay = 1e-4
 config.optim.param = dict()

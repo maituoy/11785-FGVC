@@ -158,8 +158,8 @@ def main():
         
         train_metrics = train_one_epoch(epoch, model, train_loader,
                                         optimizer, criterion, scheduler,
-                                        scaler, config, logger)
-        eval_metrics = val_one_epoch(model, val_loader, criterion, config, logger)
+                                        scaler, config, logger,mixup_fn)
+        eval_metrics = val_one_epoch(model, val_loader, criterion, config, logger,mixup_fn)
 
 
 
