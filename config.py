@@ -7,6 +7,7 @@ from datetime import datetime
 config = adict()
 
 # General configs
+config.ema = False
 config.exp = None
 config.seed = 11785
 config.world_size = 1
