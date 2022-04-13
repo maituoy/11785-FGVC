@@ -27,31 +27,7 @@ def parse_argument():
     parser.add_argument('--config', type=str, default='')
     parser.add_argument('--local_rank', type=int, default=0)
 
-    # # EMA related parameters
-    # parser.add_argument('--model_ema', type=str2bool, default=False)
-    # parser.add_argument('--model_ema_decay', type=float, default=0.9999, help='')
-    # parser.add_argument('--model_ema_force_cpu', type=str2bool, default=False, help='')
-    # parser.add_argument('--model_ema_eval', type=str2bool, default=False, help='Using ema to eval during training.')
-    # 
-    # #label_smoothing
-    # parser.add_argument('--smoothing', type=float, default=0.1,
-    #                     help='Label smoothing (default: 0.1)')
-    # 
-    # # * Mixup params
-    # parser.add_argument('--mixup', type=float, default=0.8,
-    #                     help='mixup alpha, mixup enabled if > 0.')
-    # parser.add_argument('--cutmix', type=float, default=1.0,
-    #                     help='cutmix alpha, cutmix enabled if > 0.')
-    # parser.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,
-    #                     help='cutmix min/max ratio, overrides alpha and enables cutmix if set (default: None)')
-    # parser.add_argument('--mixup_prob', type=float, default=1.0,
-    #                     help='Probability of performing mixup or cutmix when either/both is enabled')
-    # parser.add_argument('--mixup_switch_prob', type=float, default=0.5,
-    #                     help='Probability of switching to cutmix when both mixup and cutmix enabled')
-    # parser.add_argument('--mixup_mode', type=str, default='batch',
-    #                     help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
-    # 
-    # return parser.parse_known_args()
+    return parser.parse_known_args()
 
 
 def create_model(config):
@@ -115,12 +91,10 @@ def main():
 
     model = create_model(config)
     
-    #-----------------------------------------------------------------------------------------------------------
-    #Section for mixup & cutmix: 2 in 1 easy game
     mixup_fn = None
     mixup_active = config.train.mixup > 0 or config.train.cutmix > 0. or config.train.cutmix_minmax is not None
     if mixup_active:
-        print("Mixup is activated!")
+        logger.info('Mixup is activated!')
         mixup_fn = Mixup(
             mixup_alpha=config.train.mixup, cutmix_alpha=config.train.cutmix, cutmix_minmax=config.train.cutmix_minmax,
             prob=config.train.mixup_prob, switch_prob=config.train.mixup_switch_prob, mode=config.train.mixup_mode,
@@ -134,7 +108,7 @@ def main():
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
-    print("criterion = %s" % str(criterion))
+    logger.info('criterion = %s' % str(criterion))
     
     #-----------------------------------------------------------------------------------------------------------
 
@@ -148,7 +122,7 @@ def main():
             decay=config.train.model_ema_decay,
             device='cpu' if args.model_ema_force_cpu else '',
             resume='')
-        print("Using EMA with decay = %.8f" % config.train.model_ema_decay)
+        logger.info('Using EMA with decay = %.8f' % config.train.model_ema_decay)
         model = model_ema.cuda()
     else:
         model = model.cuda()    
@@ -176,13 +150,6 @@ def main():
         output_dir = config.output_dir
         with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
             yaml.dump(config.to_dict(), f)
-    
-
-    #redcued content 
-    # if config.loss.name == 'ce':
-    #     criterion = nn.CrossEntropyLoss(label_smoothing=config.loss.label_smoothing)
-    # else:
-    #     raise NotImplementedError
 
     for epoch in range(num_epochs):
 

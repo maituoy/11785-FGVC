@@ -1,13 +1,17 @@
 import torchvision
 from torch.utils.data import Dataset, DataLoader, Subset, RandomSampler, DistributedSampler, SequentialSampler
 from torchvision.datasets.utils import download_file_from_google_drive
-from torchvision import transforms
+from torchvision import transforms, datasets
 
 from PIL import Image
 import pandas as pd
 import os
 import tarfile
 from scipy.io import loadmat
+
+from timm.data.constants import \
+    IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, IMAGENET_INCEPTION_MEAN, IMAGENET_INCEPTION_STD
+from timm.data import create_transform
 
 class CUB2011(Dataset):
     def __init__(self, root, transform, train=True, extract=False):
@@ -145,6 +149,17 @@ def create_dataloader(config, logger):
         train_dataset = StandfordDog(root=config.data.root, transform=train_transforms, train=True, extract=False)
         test_dataset = StandfordDog(root=config.data.root, transform=test_transforms, train=False, extract=False)
     
+    elif config.data.name == 'imagenet1k':
+
+        train_transforms = build_transform(True, config)
+        val_transforms = build_transform(False, config)
+
+        root_train = os.path.join(config.data.root, 'train')
+        root_val = os.path.join(config.data.root, 'val')
+
+        train_dataset = datasets.ImageFolder(root_train, transform=train_transforms)
+        test_dataset = datasets.ImageFolder(root_val, transform=val_transforms)
+
     else:
         raise NotImplementedError
     
@@ -168,3 +183,48 @@ def create_dataloader(config, logger):
                              pin_memory=False)
     
     return train_loader, test_loader
+
+def build_transform(is_train, config):
+    resize_im = config.data.input_size > 32
+    mean = IMAGENET_DEFAULT_MEAN
+    std = IMAGENET_DEFAULT_STD
+
+    if is_train:
+        # this should always dispatch to transforms_imagenet_train
+        transform = create_transform(
+            input_size=config.data.input_size,
+            is_training=True,
+            color_jitter=0.4,
+            auto_augment='rand-m9-mstd0.5-inc1',
+            interpolation='bicubic',
+            re_prob=0.25,
+            re_mode='pixel',
+            re_count=1,
+            mean=mean,
+            std=std,
+        )
+        if not resize_im:
+            transform.transforms[0] = transforms.RandomCrop(
+                config.data.input_size, padding=4)
+        return transform
+
+    t = []
+    if resize_im:
+        # warping (no cropping) when evaluated at 384 or larger
+        if config.data.input_size >= 384:  
+            t.append(
+            transforms.Resize((config.data.input_size, config.data.input_size), 
+                            interpolation=transforms.InterpolationMode.BICUBIC), 
+        )
+            print(f"Warping {config.data.input_size} size input images...")
+        else:
+            size = config.data.image_size
+            t.append(
+                # to maintain same ratio w.r.t. 224 images
+                transforms.Resize(size, interpolation=transforms.InterpolationMode.BICUBIC),  
+            )
+            t.append(transforms.CenterCrop(config.data.input_size))
+
+    t.append(transforms.ToTensor())
+    t.append(transforms.Normalize(mean, std))
+    return transforms.Compose(t)

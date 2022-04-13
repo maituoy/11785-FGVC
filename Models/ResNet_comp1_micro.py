@@ -22,19 +22,21 @@ from torch.hub import load_state_dict_from_url
 from utils import LayerNorm
 
 class Bottleneck(nn.Module):
-    def __init__(self, in_channels, out_channels, downsample=None, drop_path=0, stride=1):
+    def __init__(self, in_channels, out_channels, downsample=None, drop_path=0, stride=1, layer_scale_init_value=1e-6):
         super().__init__()
 
         self.expansion = 4
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.layer_norm = LayerNorm(out_channels, epos=1e-6) #layer norm
-        self.bn1 = nn.BatchNorm2d(out_channels)
+        # self.bn1 = nn.BatchNorm2d(out_channels)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.conv3 = nn.Conv2d(out_channels, self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        self.bn3 = nn.BatchNorm2d(self.expansion*out_channels)
-
+        # self.bn2 = nn.BatchNorm2d(out_channels)
         self.gelu = nn.GELU()
+        self.conv3 = nn.Conv2d(out_channels, self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        # self.bn3 = nn.BatchNorm2d(self.expansion*out_channels)
+
+        self.gamma = nn.Parameter(layer_scale_init_value * torch.ones((self.expansion*out_channels)), 
+                                    requires_grad=True) if layer_scale_init_value > 0 else None
         self.downsample = downsample
         
         self.drop_path = DropPath(drop_path) if drop_path > 0 else nn.Identity()
@@ -57,6 +59,9 @@ class Bottleneck(nn.Module):
         x = self.conv3(x)
         # x = self.bn3(x) # remove normalization
 
+        if self.gamma is not None:
+            x = self.gamma * x
+
         if self.downsample is not None:
             identity = self.downsample(identity)
         
@@ -67,7 +72,7 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_layers=18, dims=[64, 128, 256, 512], num_classes=7000, in_channels=3, drop_path=0.0):
+    def __init__(self, block, num_layers=18, dims=[64, 128, 256, 512], num_classes=7000, in_channels=3, drop_path=0.0, layer_scale_init_value=1e-6):
         super().__init__()
 
         assert num_layers in [18,50], f'Only support 18 and 50 layers'
@@ -85,6 +90,7 @@ class ResNet(nn.Module):
         self.gelu = nn.GELU()
         self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
+        self.layer_scale_init_value=1e-6
         drop_path_rates = [x.item() for x in torch.linspace(0, drop_path, sum(depths))] 
 
         self.layer1 = self.make_layers(block, depths[0], dims[0], drop_path=drop_path_rates[0:depths[0]])
@@ -137,11 +143,11 @@ class ResNet(nn.Module):
             downsample = None
         
         
-        layers.append(block(self.inplanes, dim, downsample, drop_path=drop_path[0], stride=stride))
+        layers.append(block(self.inplanes, dim, downsample, drop_path=drop_path[0], stride=stride, layer_scale_init_value=self.layer_scale_init_value))
         self.inplanes = dim*self.expansion
 
         for i in range(depth-1):
-            layers.append(block(self.inplanes, dim, drop_path=drop_path[i+1]))
+            layers.append(block(self.inplanes, dim, drop_path=drop_path[i+1], layer_scale_init_value=self.layer_scale_init_value))
 
         return nn.Sequential(*layers)
 
