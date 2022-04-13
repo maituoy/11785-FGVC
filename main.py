@@ -115,6 +115,45 @@ def main():
 
     model = create_model(config)
     
+    #-----------------------------------------------------------------------------------------------------------
+    #Section for mixup & cutmix: 2 in 1 easy game
+    mixup_fn = None
+    mixup_active = config.train.mixup > 0 or config.train.cutmix > 0. or config.train.cutmix_minmax is not None
+    if mixup_active:
+        print("Mixup is activated!")
+        mixup_fn = Mixup(
+            mixup_alpha=config.train.mixup, cutmix_alpha=config.train.cutmix, cutmix_minmax=config.train.cutmix_minmax,
+            prob=config.train.mixup_prob, switch_prob=config.train.mixup_switch_prob, mode=config.train.mixup_mode,
+            label_smoothing=config.train.smoothing, num_classes=config.train.nb_classes)
+            
+    if mixup_fn is not None:
+        #smoothing is handled with mixup label transform
+        criterion = SoftTargetCrossEntropy()
+    elif config.train.smoothing > 0.:
+        criterion = LabelSmoothingCrossEntropy(smoothing=config.train.smoothing)
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
+
+    print("criterion = %s" % str(criterion))
+    
+    #-----------------------------------------------------------------------------------------------------------
+
+    #-----------------------------------------------------------------------------------------------------------
+    ##Section for ema:
+    model_ema = None
+    if config.train.model_ema:
+        # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
+        model_ema = ModelEma(
+            model,
+            decay=config.train.model_ema_decay,
+            device='cpu' if args.model_ema_force_cpu else '',
+            resume='')
+        print("Using EMA with decay = %.8f" % config.train.model_ema_decay)
+        model = model_ema.cuda()
+    else:
+        model = model.cuda()    
+    #-----------------------------------------------------------------------------------------------------------
+    
 
     train_loader, val_loader = create_dataloader(config, logger)
     
@@ -138,44 +177,7 @@ def main():
         with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
             yaml.dump(config.to_dict(), f)
     
-    #-------------------------
-    #Section for mixup & cutmix: 2 in 1 easy game
-    mixup_fn = None
-    mixup_active = config.train.mixup > 0 or config.train.cutmix > 0. or config.train.cutmix_minmax is not None
-    if mixup_active:
-        print("Mixup is activated!")
-        mixup_fn = Mixup(
-            mixup_alpha=config.train.mixup, cutmix_alpha=config.train.cutmix, cutmix_minmax=config.train.cutmix_minmax,
-            prob=config.train.mixup_prob, switch_prob=config.train.mixup_switch_prob, mode=config.train.mixup_mode,
-            label_smoothing=config.train.smoothing, num_classes=config.train.nb_classes)
-            
-    if mixup_fn is not None:
-        #smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif config.train.smoothing > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=config.train.smoothing)
-    else:
-        criterion = torch.nn.CrossEntropyLoss()
 
-    print("criterion = %s" % str(criterion))
-    
-    #-------------------------
-
-    #-------------------------
-    ##Section for ema:
-    model_ema = None
-    if config.train.model_ema:
-        # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
-        model_ema = ModelEma(
-            model,
-            decay=config.train.model_ema_decay,
-            device='cpu' if args.model_ema_force_cpu else '',
-            resume='')
-        print("Using EMA with decay = %.8f" % config.train.model_ema_decay)
-        model = model_ema.cuda()
-    else:
-        model = model.cuda()    
-    #---------------------------------------------
     #redcued content 
     # if config.loss.name == 'ce':
     #     criterion = nn.CrossEntropyLoss(label_smoothing=config.loss.label_smoothing)
@@ -196,6 +198,3 @@ def main():
 
 if __name__ == "__main__":
     main() 
-
-
-
