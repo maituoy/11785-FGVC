@@ -150,28 +150,4 @@ class ResNet(nn.Module):
             layers.append(block(self.inplanes, dim, drop_path=drop_path[i+1], layer_scale_init_value=self.layer_scale_init_value))
 
         return nn.Sequential(*layers)
-
-def resnet50(pretrained=False, progress=True, **kwargs):
-
-    model = ResNet(Bottleneck, 50, num_classes=1000, **kwargs)
-
-    if pretrained:
-        state_dict = load_state_dict_from_url("https://download.pytorch.org/models/resnet50-0676ba61.pth", progress=progress)
-        model.load_state_dict(state_dict)
-
-    return model
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         
