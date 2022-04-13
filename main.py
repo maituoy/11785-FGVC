@@ -6,6 +6,10 @@ from utils import get_parameter_num
 from configs import config, update_cfg, preprocess_cfg
 from log import setup_default_logging
 
+from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+from timm.utils import ModelEma
+from timm.data.mixup import Mixup
+
 import os
 import argparse
 import yaml
@@ -23,7 +27,31 @@ def parse_argument():
     parser.add_argument('--config', type=str, default='')
     parser.add_argument('--local_rank', type=int, default=0)
 
-    return parser.parse_known_args()
+    # # EMA related parameters
+    # parser.add_argument('--model_ema', type=str2bool, default=False)
+    # parser.add_argument('--model_ema_decay', type=float, default=0.9999, help='')
+    # parser.add_argument('--model_ema_force_cpu', type=str2bool, default=False, help='')
+    # parser.add_argument('--model_ema_eval', type=str2bool, default=False, help='Using ema to eval during training.')
+    # 
+    # #label_smoothing
+    # parser.add_argument('--smoothing', type=float, default=0.1,
+    #                     help='Label smoothing (default: 0.1)')
+    # 
+    # # * Mixup params
+    # parser.add_argument('--mixup', type=float, default=0.8,
+    #                     help='mixup alpha, mixup enabled if > 0.')
+    # parser.add_argument('--cutmix', type=float, default=1.0,
+    #                     help='cutmix alpha, cutmix enabled if > 0.')
+    # parser.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,
+    #                     help='cutmix min/max ratio, overrides alpha and enables cutmix if set (default: None)')
+    # parser.add_argument('--mixup_prob', type=float, default=1.0,
+    #                     help='Probability of performing mixup or cutmix when either/both is enabled')
+    # parser.add_argument('--mixup_switch_prob', type=float, default=0.5,
+    #                     help='Probability of switching to cutmix when both mixup and cutmix enabled')
+    # parser.add_argument('--mixup_mode', type=str, default='batch',
+    #                     help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
+    # 
+    # return parser.parse_known_args()
 
 
 def create_model(config):
@@ -86,7 +114,7 @@ def main():
     
 
     model = create_model(config)
-    model = model.cuda()
+    
 
     train_loader, val_loader = create_dataloader(config, logger)
     
@@ -110,10 +138,49 @@ def main():
         with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
             yaml.dump(config.to_dict(), f)
     
-    if config.loss.name == 'ce':
-        criterion = nn.CrossEntropyLoss(label_smoothing=config.loss.label_smoothing)
+    #-------------------------
+    #Section for mixup & cutmix: 2 in 1 easy game
+    mixup_fn = None
+    mixup_active = config.train.mixup > 0 or config.train.cutmix > 0. or config.train.cutmix_minmax is not None
+    if mixup_active:
+        print("Mixup is activated!")
+        mixup_fn = Mixup(
+            mixup_alpha=config.train.mixup, cutmix_alpha=config.train.cutmix, cutmix_minmax=config.train.cutmix_minmax,
+            prob=config.train.mixup_prob, switch_prob=config.train.mixup_switch_prob, mode=config.train.mixup_mode,
+            label_smoothing=config.train.smoothing, num_classes=config.train.nb_classes)
+            
+    if mixup_fn is not None:
+        #smoothing is handled with mixup label transform
+        criterion = SoftTargetCrossEntropy()
+    elif config.train.smoothing > 0.:
+        criterion = LabelSmoothingCrossEntropy(smoothing=config.train.smoothing)
     else:
-        raise NotImplementedError
+        criterion = torch.nn.CrossEntropyLoss()
+
+    print("criterion = %s" % str(criterion))
+    
+    #-------------------------
+
+    #-------------------------
+    ##Section for ema:
+    model_ema = None
+    if config.train.model_ema:
+        # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
+        model_ema = ModelEma(
+            model,
+            decay=config.train.model_ema_decay,
+            device='cpu' if args.model_ema_force_cpu else '',
+            resume='')
+        print("Using EMA with decay = %.8f" % config.train.model_ema_decay)
+        model = model_ema.cuda()
+    else:
+        model = model.cuda()    
+    #---------------------------------------------
+    #redcued content 
+    # if config.loss.name == 'ce':
+    #     criterion = nn.CrossEntropyLoss(label_smoothing=config.loss.label_smoothing)
+    # else:
+    #     raise NotImplementedError
 
     for epoch in range(num_epochs):
 
