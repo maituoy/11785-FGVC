@@ -1,0 +1,46 @@
+data:
+  batch_size: 16
+  batches: 46
+  image_size: 512
+  input_size: 448
+  name: CUB2011
+  num_workers: 8
+  root: /media/Bootes/dl_fgvc/CUB2011
+  sampler:
+    name: null
+    param: {}
+device: cuda:0
+distributed: true
+eval_metric: val_top1
+exp: icn_resnet50_448
+local_rank: 0
+log_interval: 50
+loss:
+  label_smoothing: 0.0
+  name: ce
+model:
+  backbone:
+    name: resnet50
+    param: {}
+  head:
+    num_classes: 200
+  pipeline:
+    name: IDL
+    param: {}
+  pretrained:
+    avoid_prefix: null
+    path: null
+optim:
+  epochs: 100
+  lr: 0.03
+  name: sgd
+  param: {}
+  sched: cosine
+  warmup_epochs: 5
+  weight_decay: 0.0001
+output_dir: ./experiments/CUB2011/icn_resnet50_448_20220409-174033
+rank: 0
+seed: 50
+sync_bn: false
+use_amp: true
+world_size: 8

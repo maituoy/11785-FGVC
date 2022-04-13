@@ -1,0 +1,35 @@
+exp: vit_s16_448
+seed: 50
+use_amp: True
+sync_bn: False
+eval_metric: val_top1
+
+data:
+  root: /media/Bootes/dl_fgvc/
+  name: CUB2011
+  image_size: 512
+  input_size: 448
+  batch_size: 16
+  num_workers: 8
+
+optim:
+  name: sgd
+  lr: 0.03
+  weight_decay: 0.0001
+  sched: cosine
+  epochs: 100
+  warmup_epochs: 5
+
+loss:
+  name: 'ce'
+  label_smoothing: 0.0
+
+model:
+  pretrained:
+    path: /media/Bootes/dl_fgvc/pretrained/ViT-S-16_res_224_i1k.npz
+  backbone:
+    name: vit_s16
+  head:
+    num_classes: 200
+
+

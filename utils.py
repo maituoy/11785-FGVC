@@ -2,8 +2,10 @@ import os
 import torch
 from tensorflow.io import gfile
 import numpy as np
+import math
 
 import torch.nn.functional as F
+import torch.distributed as dist
 
 
 def load_checkpoint(path):
@@ -143,3 +145,15 @@ def resize_pos_embed(posemb, posemb_new, num_tokens=1, gs_new=()):
     posemb_grid = posemb_grid.permute(0, 2, 3, 1).reshape(1, gs_new[0] * gs_new[1], -1)
     posemb = torch.cat([posemb_tok, posemb_grid], dim=1)
     return posemb
+
+def reduce_tensor(tensor):
+    rt = tensor.clone()
+    dist.all_reduce(rt, op=dist.ReduceOp.SUM)
+    rt /= dist.get_world_size()
+    return rt
+
+def get_parameter_num(model):
+    num_trainable_parameters = 0
+    for p in model.parameters():
+        num_trainable_parameters += p.numel()
+    return num_trainable_parameters
