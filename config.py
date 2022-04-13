@@ -23,6 +23,7 @@ config.train.cutmix_minmax = None
 config.train.mixup_prob = 1.0
 config.train.mixup_switch_prob = 0.5
 config.train.mixup_mode = "batch"
+config.train.nb_classes = 200
 
 # General configs
 config.exp = None
