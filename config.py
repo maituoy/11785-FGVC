@@ -5,6 +5,24 @@ from typing import List, Tuple, Union
 from datetime import datetime
 
 config = adict()
+#Train aug
+## EMA related parameters
+config.train.model_ema = False
+config.train.model_ema_decay = 0.9999
+config.train.model_ema_force_cpu = False
+config.train.model_ema_eval = False
+
+
+## label_smoothing
+config.train.smoothing = 0.1
+
+## mixup params
+config.train.mixup = 0.8
+config.train.cutmix = 1.0
+config.train.cutmix_minmax = None
+config.train.mixup_prob = 1.0
+config.train.mixup_switch_prob = 0.5
+config.train.mixup_mode = "batch"
 
 # General configs
 config.exp = None
