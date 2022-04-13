@@ -46,7 +46,7 @@ config.data.sampler.name = None
 config.data.sampler.param = dict()
 
 # Optimizer
-config.optim.name = 'adamW'
+config.optim.name = 'adamw'
 config.optim.lr = 0.002
 config.optim.weight_decay = 1e-4
 config.optim.param = dict()
