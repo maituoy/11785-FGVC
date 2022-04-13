@@ -10,6 +10,8 @@ The following steps are based on Figure 5 and section 2.6 in paper https://doi.o
 4. substituting BN with LN     -- done
 5. Seperate downsampling layers -- not done yet!
 '''
+import sys
+sys.path.append('../')
 
 from numpy import identity
 import torch
@@ -17,9 +19,7 @@ import torch.nn as  nn
 import torch.nn.functional as F
 from timm.models.layers import DropPath
 from torch.hub import load_state_dict_from_url
-import sys
-
-sys.path.append('../')
+from utils import LayerNorm
 
 class Bottleneck(nn.Module):
     def __init__(self, in_channels, out_channels, downsample=None, drop_path=0, stride=1):
