@@ -1,201 +1,172 @@
-from Models.ResNet import resnet50
-from Models.ViT import vit_s16
-from Dataset import create_dataloader
-from running import setup4training, train_one_epoch, val_one_epoch
-from utils import get_parameter_num
-from configs import config, update_cfg, preprocess_cfg
-from log import setup_default_logging
-
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
-from timm.utils import ModelEma
-from timm.data.mixup import Mixup
-
 import os
-import argparse
 import yaml
-import logging
-import random
-import numpy as np
-import torch
-import torch.nn as nn
-from torch.nn.parallel import DistributedDataParallel
-logger = logging.getLogger('train')
+from addict import Dict as adict
+from typing import List, Tuple, Union
+from datetime import datetime
 
-def parse_argument():
+config = adict()
 
-    parser = argparse.ArgumentParser(description='FGVC params')
-    parser.add_argument('--config', type=str, default='')
-    parser.add_argument('--local_rank', type=int, default=0)
+# General configs
+config.exp = None
+config.seed = 11785
+config.world_size = 1
+config.use_amp = True
+config.output_dir = './experiments'
+config.sync_bn = False
+config.log_interval = 50
+config.eval_metric = 'val_top1'
 
-    # EMA related parameters
-    parser.add_argument('--model_ema', type=str2bool, default=False)
-    parser.add_argument('--model_ema_decay', type=float, default=0.9999, help='')
-    parser.add_argument('--model_ema_force_cpu', type=str2bool, default=False, help='')
-    parser.add_argument('--model_ema_eval', type=str2bool, default=False, help='Using ema to eval during training.')
+# Dataset
+config.data.root = './data'
+config.data.name = 'CUB2011'
+config.data.image_size = 256
+config.data.input_size = 224
+config.data.batch_size = 32
+config.data.num_workers = 8
+config.data.sampler.name = None
+config.data.sampler.param = dict()
 
-    #label_smoothing
-    parser.add_argument('--smoothing', type=float, default=0.1,
-                        help='Label smoothing (default: 0.1)')
+# Optimizer
+config.optim.name = 'adamW'
+config.optim.lr = 0.002
+config.optim.weight_decay = 1e-4
+config.optim.param = dict()
+config.optim.sched = 'cosine'
+config.optim.epochs = 100
+config.optim.warmup_epochs = 5
 
-    # * Mixup params
-    parser.add_argument('--mixup', type=float, default=0.8,
-                        help='mixup alpha, mixup enabled if > 0.')
-    parser.add_argument('--cutmix', type=float, default=1.0,
-                        help='cutmix alpha, cutmix enabled if > 0.')
-    parser.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,
-                        help='cutmix min/max ratio, overrides alpha and enables cutmix if set (default: None)')
-    parser.add_argument('--mixup_prob', type=float, default=1.0,
-                        help='Probability of performing mixup or cutmix when either/both is enabled')
-    parser.add_argument('--mixup_switch_prob', type=float, default=0.5,
-                        help='Probability of switching to cutmix when both mixup and cutmix enabled')
-    parser.add_argument('--mixup_mode', type=str, default='batch',
-                        help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
+# Criterion
+config.loss.name = 'ce'
+config.loss.label_smoothing = 0.0
 
-    return parser.parse_known_args()
+# Model
+config.model.pretrained.path = None
+config.model.pretrained.pretrain = True
+config.model.backbone.name = 'resnet50'
+config.model.backbone.param = dict()
+config.model.head.num_classes = 200
 
 
-def create_model(config):
+def update_cfg(cfg: adict, cfg_yaml: str, cfg_argv: List[str]) -> None:
+    # Update default cfg with given yaml file and argv list
+    with open(cfg_yaml) as f:
+        user_cfg = yaml.load(f, Loader=yaml.FullLoader)
+        _recursive_update(cfg, adict(user_cfg))
+    update_cfg_from_argv(cfg, cfg_argv)
 
-    name = config.model.backbone.name
-    num_classes = config.model.head.num_classes
-    pretrain = config.model.pretrained.pretrain
-    pretrained_path = config.model.pretrained.path
 
-    if name == 'resnet50':
-        if pretrain:
-            model = resnet50(pretrained=True)
-            model.fc = nn.Linear(2048, num_classes)
+def _recursive_update(_cfg, _user_cfg):
+    """ 
+    Recursively update the addict
+    :param _cfg: The addict to be updated
+    :param _user_cfg: The source dict given by user
+    """
+    for key, value in _user_cfg.items():
+        if key not in _cfg:
+            raise AttributeError(f'key is restricted among {list(_cfg.keys())},'
+                                 f' got {key} instead!')
+        if isinstance(_cfg[key], dict) and not isinstance(_cfg[key], adict):  # Unrestricted cfg like param
+            assert isinstance(value, dict), f'value for {key} must be a dict, got {value} instead'
+            _cfg[key] = adict(value)
+        elif not isinstance(value, dict):
+            if isinstance(value, (list, tuple)):  # Unpack list/tuple of dict into adict
+                value = adict(tmp=value)['tmp']
+            elif isinstance(value, str) and value.strip().lower() in ['none', 'null']:
+                value = None
+            _cfg[key] = value
         else:
-            model = resnet50(pretrained=False)
-            model.fc = nn.Linear(2048, num_classes)
+            _recursive_update(_cfg[key], value)
 
-    elif name == 'vit_s16':
-        if pretrain:
-            model = vit_s16(config, pretrained=True)
-            model.head = nn.Linear(384, num_classes)
+
+# Update cfg from agrv for override
+def update_cfg_from_argv(cfg: adict,
+                         cfg_argv: List[str],
+                         delimiter: str = '=') -> None:
+    r""" Update global cfg with list from argparser
+    Args:
+        cfg: the cfg to be updated by the argv
+        cfg_argv: the new config list, like ['epoch=10', 'save.last=False']
+        dilimeter: the dilimeter between key and value of the given config
+    """
+
+    def resolve_cfg_with_legality_check(keys: List[str]) -> Tuple[adict, str]:
+        r""" Resolve the parent and leaf from given keys and check their legality.
+        Args:
+            keys: The hierarchical keys of global cfg
+        Returns:
+            the resolved parent adict obj and its legal key to be upated.
+        """
+
+        obj, obj_repr = cfg, 'cfg'
+        for idx, sub_key in enumerate(keys):
+            if not isinstance(obj, adict) or sub_key not in obj:
+                raise ValueError(f'Undefined attribute "{sub_key}" detected for "{obj_repr}"')
+            if idx < len(keys) - 1:
+                obj = obj.get(sub_key)
+                obj_repr += f'.{sub_key}'
+        return obj, sub_key
+
+    for str_argv in cfg_argv:
+        item = str_argv.split(delimiter, 1)
+        assert len(item) == 2, "Error argv (must be key=value): " + str_argv
+        key, value = item
+        obj, leaf = resolve_cfg_with_legality_check(key.split('.'))
+        obj[leaf] = eval(add_quotation_to_string(value))
+
+
+def is_number_or_bool_or_none(x: str):
+    r""" Return True if the given str represents a number (int or float) or bool
+    """
+
+    try:
+        float(x)
+        return True
+    except ValueError:
+        return x in ['True', 'False', 'None']
+
+
+def add_quotation_to_string(s: str,
+                            split_chars: List[str] = None) -> str:
+    r""" For eval() to work properly, all string must be added quatation.
+         Example: '[[train,3],[val,1]' -> '[["train",3],["val",1]'
+    Args:
+        s: the original value string
+        split_chars: the chars that mark the split of the string
+    Returns:
+        the quoted value string
+    """
+
+    if split_chars is None:
+        split_chars = ['[', ']', '{', '}', ',', ' ']
+        if '{' in s and '}' in s:
+            split_chars.append(':')
+    s_mark, marker = s, chr(1)
+    for split_char in split_chars:
+        s_mark = s_mark.replace(split_char, marker)
+
+    s_quoted = ''
+    for value in s_mark.split(marker):
+        if len(value) == 0:
+            continue
+        st = s.find(value)
+        if is_number_or_bool_or_none(value):
+            s_quoted += s[:st] + value
+        elif value.startswith("'") and value.endswith("'") or value.startswith('"') and value.endswith('"'):
+            s_quoted += s[:st] + value
         else:
-            model = vit_s16(config, pretrained=False)
-            model.head = nn.Linear(384, num_classes)
+            s_quoted += s[:st] + '"' + value + '"'
+        s = s[st + len(value):]
 
-    else:
-        raise NotImplementedError
+    return s_quoted + s
 
-    return model
-def main():
-    setup_default_logging()
-    args, config_overrided = parse_argument()
-    print(args.config)
-    update_cfg(config, args.config, config_overrided)
-    preprocess_cfg(config, args.local_rank)
+def preprocess_cfg(cfg, local_rank):
+    # local rank
+    cfg.local_rank = local_rank
 
-    if 'WORLD_SIZE' in os.environ:
-        config.distributed = int(os.environ['WORLD_SIZE']) > 1
-    else:
-        config.distributed = False
+    # out_dir
+    if cfg.local_rank == 0:
+        cfg.output_dir = os.path.join(cfg.output_dir, cfg.data.name, cfg.exp + f'_{datetime.now().strftime("%Y%m%d-%H%M%S")}')
+        os.makedirs(cfg.output_dir, exist_ok=True)
     
-    if config.distributed:
-        config.device = 'cuda:%d' % config.local_rank
-        torch.cuda.set_device(config.local_rank)
-        torch.distributed.init_process_group(backend='nccl', init_method='env://')
-        config.world_size = torch.distributed.get_world_size()
-        config.rank = torch.distributed.get_rank()
-        logger.info('Training in distributed mode with \
-                     multiple processes, 1 GPU per process.\
-                     Process {:d}, total {:d}.'.format(config.rank, config.world_size))
-    else:
-        config.device = 'cuda:0'
-        config.world_size = 1
-        config.rank = 0
-        logger.info('Training with a single process on 1 GPU.')
-
-    torch.manual_seed(config.seed + config.rank)
-    np.random.seed(config.seed + config.rank)
-    random.seed(config.seed + config.rank)
-    
-
-    model = create_model(config)
-    
-
-    train_loader, val_loader = create_dataloader(config, logger)
-    
-    config.data.batches = len(train_loader)
-
-    optimizer, scheduler, scaler = setup4training(model, config)
-
-    num_epochs = config.optim.epochs + config.optim.warmup_epochs
-
-    if config.distributed:
-        model = DistributedDataParallel(model, device_ids=[config.local_rank])
-
-    output_dir = None
-    eval_metric = config.eval_metric
-    best_metric = None
-    best_epoch = None
-    checkpoint_saver = None
-
-    if config.local_rank == 0:
-        output_dir = config.output_dir
-        with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
-            yaml.dump(config.to_dict(), f)
-    
-    #-------------------------
-    #Section for mixup & cutmix: 2 in 1 easy game
-    mixup_fn = None
-    mixup_active = args.mixup > 0 or args.cutmix > 0. or args.cutmix_minmax is not None
-    if mixup_active:
-        print("Mixup is activated!")
-        mixup_fn = Mixup(
-            mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
-            prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
-            label_smoothing=args.smoothing, num_classes=args.nb_classes)
-            
-    if mixup_fn is not None:
-        #smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif args.smoothing > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
-    else:
-        criterion = torch.nn.CrossEntropyLoss()
-
-    print("criterion = %s" % str(criterion))
-    
-    #-------------------------
-
-    #-------------------------
-    ##Section for ema:
-    model_ema = None
-    if args.model_ema:
-        # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
-        model_ema = ModelEma(
-            model,
-            decay=args.model_ema_decay,
-            device='cpu' if args.model_ema_force_cpu else '',
-            resume='')
-        print("Using EMA with decay = %.8f" % args.model_ema_decay)
-        model = model_ema.cuda()
-    else:
-        model = model.cuda()    
-    #---------------------------------------------
-    #redcued content 
-    # if config.loss.name == 'ce':
-    #     criterion = nn.CrossEntropyLoss(label_smoothing=config.loss.label_smoothing)
-    # else:
-    #     raise NotImplementedError
-
-    for epoch in range(num_epochs):
-
-        if config.distributed and hasattr(train_loader.sampler, 'set_epoch'):
-            train_loader.sampler.set_epoch(epoch)
-        
-        train_metrics = train_one_epoch(epoch, model, train_loader,
-                                        optimizer, criterion, scheduler,
-                                        scaler, config, logger)
-        eval_metrics = val_one_epoch(model, val_loader, criterion, config, logger)
-
-
-
-if __name__ == "__main__":
-    main() 
-
-
-
+    # data dir 
+    cfg.data.root = os.path.join(cfg.data.root, cfg.data.name)
