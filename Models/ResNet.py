@@ -168,18 +168,4 @@ def resnet50(pretrained=False, progress=True, **kwargs):
         model.load_state_dict(state_dict)
 
     return model
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         

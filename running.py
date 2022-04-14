@@ -39,7 +39,7 @@ def setup4training(model, config):
 
     return optimizer, scheduler, scaler
 
-def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger):
+def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger, mixup_fn=None):
     model.train()
 
     batch_time_m = AverageMeter()
@@ -54,7 +54,8 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         data_time_m.update(time.time() - end)
 
         samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
-
+        if mixup_fn is not None:
+              samples, targets = mixup_fn(samples, targets)
         with torch.cuda.amp.autocast():  
             outputs = model(samples)
             loss = criterion(outputs, targets)
@@ -101,7 +102,7 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         torch.cuda.empty_cache()    
     return OrderedDict([('train_loss', losses_m.avg)])
         
-def val_one_epoch(model, test_loader, criterion, config, logger):
+def val_one_epoch(model, test_loader, criterion, config, logger,mixup_fn=None):
 
     batch_time_m = AverageMeter()
     losses_m = AverageMeter()
@@ -118,7 +119,8 @@ def val_one_epoch(model, test_loader, criterion, config, logger):
         for idx, (samples, targets) in enumerate(test_loader):
             last_batch = last_idx == idx
             samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
-
+            if mixup_fn is not None:
+              samples, targets = mixup_fn(samples, targets)
             output = model(samples)
 
             loss = criterion(output, targets)
