@@ -58,7 +58,11 @@ def create_model(config):
 
     return model
 def main():
-    
+    setup_default_logging()
+    args, config_overrided = parse_argument()
+    print(args.config)
+    update_cfg(config, args.config, config_overrided)
+    preprocess_cfg(config, args.local_rank)
 
     if 'WORLD_SIZE' in os.environ:
         config.distributed = int(os.environ['WORLD_SIZE']) > 1
