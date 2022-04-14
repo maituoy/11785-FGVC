@@ -91,9 +91,6 @@ def main():
     
 
     model = create_model(config)
-<<<<<<< HEAD
-    model = model.cuda()
-=======
     
     mixup_fn = None
     mixup_active = config.train.mixup > 0 or config.train.cutmix > 0. or config.train.cutmix_minmax is not None
@@ -132,7 +129,6 @@ def main():
         model = model.cuda()    
     #-----------------------------------------------------------------------------------------------------------
     
->>>>>>> dacff29d0d114dcc03f6e2195e8b09c5aa55530c
 
     train_loader, val_loader = create_dataloader(config, logger)
     
@@ -155,15 +151,7 @@ def main():
         output_dir = config.output_dir
         with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
             yaml.dump(config.to_dict(), f)
-<<<<<<< HEAD
-    
-    if config.loss.name == 'ce':
-        criterion = nn.CrossEntropyLoss(label_smoothing=config.loss.label_smoothing)
-    else:
-        raise NotImplementedError
-    
-=======
->>>>>>> dacff29d0d114dcc03f6e2195e8b09c5aa55530c
+
 
     for epoch in range(num_epochs):
 

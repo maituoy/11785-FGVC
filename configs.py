@@ -5,8 +5,7 @@ from typing import List, Tuple, Union
 from datetime import datetime
 
 config = adict()
-<<<<<<< HEAD
-=======
+
 #Train aug
 ## EMA related parameters
 config.train.model_ema = False
@@ -25,8 +24,7 @@ config.train.cutmix_minmax = None
 config.train.mixup_prob = 1.0
 config.train.mixup_switch_prob = 0.5
 config.train.mixup_mode = "batch"
-config.train.nb_classes = 200
->>>>>>> dacff29d0d114dcc03f6e2195e8b09c5aa55530c
+
 
 # General configs
 config.exp = None
@@ -49,11 +47,7 @@ config.data.sampler.name = None
 config.data.sampler.param = dict()
 
 # Optimizer
-<<<<<<< HEAD
 config.optim.name = 'adamW'
-=======
-config.optim.name = 'adamw'
->>>>>>> dacff29d0d114dcc03f6e2195e8b09c5aa55530c
 config.optim.lr = 0.002
 config.optim.weight_decay = 1e-4
 config.optim.param = dict()
@@ -195,8 +189,5 @@ def preprocess_cfg(cfg, local_rank):
         os.makedirs(cfg.output_dir, exist_ok=True)
     
     # data dir 
-<<<<<<< HEAD
     cfg.data.root = os.path.join(cfg.data.root, cfg.data.name)
-=======
-    cfg.data.root = os.path.join(cfg.data.root, cfg.data.name)
->>>>>>> dacff29d0d114dcc03f6e2195e8b09c5aa55530c
+
