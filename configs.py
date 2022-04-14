@@ -12,6 +12,8 @@ config.train.model_ema = False
 config.train.model_ema_decay = 0.9999
 config.train.model_ema_force_cpu = False
 config.train.model_ema_eval = False
+config.train.ema_force_cpu = False
+
 
 
 ## label_smoothing
