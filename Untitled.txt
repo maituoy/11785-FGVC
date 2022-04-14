@@ -1,0 +1,106 @@
+ResNet50_from_scratch_dog
+
+Train:   0%|          | 0/375 [00:00<?, ?it/s, acc=0.0000%, loss=7.1951, lr=0.0300, num_correct=0]/usr/local/lib/python3.7/dist-packages/torch/optim/lr_scheduler.py:136: UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`. In PyTorch 1.1.0 and later, you should call them in the opposite order: `optimizer.step()` before `lr_scheduler.step()`.  Failure to do this will result in PyTorch skipping the first value of the learning rate schedule. See more details at https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate
+  "https://pytorch.org/docs/stable/optim.html#how-to-adjust-learning-rate", UserWarning)
+Epoch 1/50: Train Acc 1.2583%, Train Loss 5.2430, Learning Rate 0.0300
+Epoch 2/50: Train Acc 2.1333%, Train Loss 4.6416, Learning Rate 0.0299
+Epoch 3/50: Train Acc 3.3333%, Train Loss 4.4751, Learning Rate 0.0297
+Epoch 4/50: Train Acc 4.5333%, Train Loss 4.3390, Learning Rate 0.0295
+Epoch 5/50: Train Acc 5.6500%, Train Loss 4.1982, Learning Rate 0.0293
+Epoch 6/50: Train Acc 6.6250%, Train Loss 4.0895, Learning Rate 0.0289
+Epoch 7/50: Train Acc 8.1833%, Train Loss 3.9654, Learning Rate 0.0286
+Epoch 8/50: Train Acc 9.7417%, Train Loss 3.8575, Learning Rate 0.0281
+Epoch 9/50: Train Acc 11.4250%, Train Loss 3.7561, Learning Rate 0.0277
+Epoch 10/50: Train Acc 12.3500%, Train Loss 3.6689, Learning Rate 0.0271
+Validation: 12.7972%
+Epoch 11/50: Train Acc 13.9000%, Train Loss 3.5821, Learning Rate 0.0266
+Epoch 12/50: Train Acc 15.6083%, Train Loss 3.4775, Learning Rate 0.0259
+Epoch 13/50: Train Acc 17.6833%, Train Loss 3.3646, Learning Rate 0.0253
+Epoch 14/50: Train Acc 19.1333%, Train Loss 3.2692, Learning Rate 0.0246
+Epoch 15/50: Train Acc 21.1083%, Train Loss 3.1612, Learning Rate 0.0238
+Epoch 16/50: Train Acc 22.9417%, Train Loss 3.0589, Learning Rate 0.0230
+Epoch 17/50: Train Acc 24.9917%, Train Loss 2.9494, Learning Rate 0.0222
+Epoch 18/50: Train Acc 26.9000%, Train Loss 2.8469, Learning Rate 0.0214
+Epoch 19/50: Train Acc 28.8333%, Train Loss 2.7572, Learning Rate 0.0205
+Epoch 20/50: Train Acc 31.1750%, Train Loss 2.6171, Learning Rate 0.0196
+Validation: 26.7716%
+Epoch 21/50: Train Acc 33.4667%, Train Loss 2.5128, Learning Rate 0.0187
+Epoch 22/50: Train Acc 36.2333%, Train Loss 2.4092, Learning Rate 0.0178
+Epoch 23/50: Train Acc 38.4083%, Train Loss 2.2910, Learning Rate 0.0169
+Epoch 24/50: Train Acc 40.6250%, Train Loss 2.1830, Learning Rate 0.0159
+Epoch 25/50: Train Acc 43.1750%, Train Loss 2.0832, Learning Rate 0.0150
+Epoch 26/50: Train Acc 45.2667%, Train Loss 1.9721, Learning Rate 0.0141
+Epoch 27/50: Train Acc 47.1917%, Train Loss 1.8811, Learning Rate 0.0131
+Epoch 28/50: Train Acc 49.8417%, Train Loss 1.7714, Learning Rate 0.0122
+Epoch 29/50: Train Acc 52.6750%, Train Loss 1.6651, Learning Rate 0.0113
+Epoch 30/50: Train Acc 55.4500%, Train Loss 1.5581, Learning Rate 0.0104
+Validation: 35.3730%
+Epoch 31/50: Train Acc 58.7000%, Train Loss 1.4302, Learning Rate 0.0095
+Epoch 32/50: Train Acc 61.2583%, Train Loss 1.3384, Learning Rate 0.0086
+Epoch 33/50: Train Acc 63.7083%, Train Loss 1.2400, Learning Rate 0.0078
+Epoch 34/50: Train Acc 66.7667%, Train Loss 1.1262, Learning Rate 0.0070
+Epoch 35/50: Train Acc 69.3000%, Train Loss 1.0151, Learning Rate 0.0062
+Epoch 36/50: Train Acc 72.1000%, Train Loss 0.9234, Learning Rate 0.0054
+Epoch 37/50: Train Acc 75.0750%, Train Loss 0.8157, Learning Rate 0.0047
+Epoch 38/50: Train Acc 77.6333%, Train Loss 0.7287, Learning Rate 0.0041
+Epoch 39/50: Train Acc 80.4250%, Train Loss 0.6438, Learning Rate 0.0034
+Epoch 40/50: Train Acc 82.7667%, Train Loss 0.5489, Learning Rate 0.0029
+Validation: 40.5944%
+Epoch 41/50: Train Acc 85.2500%, Train Loss 0.4816, Learning Rate 0.0023
+Epoch 42/50: Train Acc 87.6000%, Train Loss 0.4071, Learning Rate 0.0019
+Epoch 43/50: Train Acc 88.8583%, Train Loss 0.3628, Learning Rate 0.0014
+Epoch 44/50: Train Acc 90.9833%, Train Loss 0.2963, Learning Rate 0.0011
+Epoch 45/50: Train Acc 92.2083%, Train Loss 0.2649, Learning Rate 0.0007
+Epoch 46/50: Train Acc 93.3917%, Train Loss 0.2348, Learning Rate 0.0005
+Epoch 47/50: Train Acc 94.0083%, Train Loss 0.2171, Learning Rate 0.0003
+Epoch 48/50: Train Acc 94.2000%, Train Loss 0.2062, Learning Rate 0.0001
+Epoch 49/50: Train Acc 94.1833%, Train Loss 0.2022, Learning Rate 0.0000
+Epoch 50/50: Train Acc 94.4417%, Train Loss 0.1943, Learning Rate 0.0000
+                                                                    Validation: 42.2844%
+
+
+Pretrained 50 epochs
+Epoch 1/50: Train Acc 56.9583%, Train Loss 1.4788, Learning Rate 0.0266
+Epoch 2/50: Train Acc 57.1417%, Train Loss 1.4707, Learning Rate 0.0259
+Epoch 3/50: Train Acc 58.0583%, Train Loss 1.4502, Learning Rate 0.0253
+Epoch 4/50: Train Acc 59.4833%, Train Loss 1.3925, Learning Rate 0.0246
+Epoch 5/50: Train Acc 59.6833%, Train Loss 1.3749, Learning Rate 0.0238
+Epoch 6/50: Train Acc 60.8583%, Train Loss 1.3248, Learning Rate 0.0230
+Epoch 7/50: Train Acc 62.1583%, Train Loss 1.2682, Learning Rate 0.0222
+Epoch 8/50: Train Acc 62.1417%, Train Loss 1.2682, Learning Rate 0.0214
+Epoch 9/50: Train Acc 64.3833%, Train Loss 1.2017, Learning Rate 0.0205
+Epoch 10/50: Train Acc 66.6583%, Train Loss 1.1349, Learning Rate 0.0196
+Validation: 49.5688%
+Epoch 11/50: Train Acc 66.7167%, Train Loss 1.1017, Learning Rate 0.0187
+Epoch 12/50: Train Acc 68.3000%, Train Loss 1.0582, Learning Rate 0.0178
+Epoch 13/50: Train Acc 69.5583%, Train Loss 1.0117, Learning Rate 0.0169
+Epoch 14/50: Train Acc 71.2833%, Train Loss 0.9579, Learning Rate 0.0159
+Epoch 15/50: Train Acc 71.6333%, Train Loss 0.9311, Learning Rate 0.0150
+Epoch 16/50: Train Acc 74.1500%, Train Loss 0.8624, Learning Rate 0.0141
+Epoch 17/50: Train Acc 75.3417%, Train Loss 0.8058, Learning Rate 0.0131
+Epoch 18/50: Train Acc 78.1083%, Train Loss 0.7243, Learning Rate 0.0122
+Epoch 19/50: Train Acc 79.3917%, Train Loss 0.6737, Learning Rate 0.0113
+Epoch 20/50: Train Acc 81.0583%, Train Loss 0.6142, Learning Rate 0.0104
+Validation: 59.9184%
+Epoch 21/50: Train Acc 83.1167%, Train Loss 0.5508, Learning Rate 0.0095
+Epoch 22/50: Train Acc 85.6083%, Train Loss 0.4818, Learning Rate 0.0086
+Epoch 23/50: Train Acc 88.3167%, Train Loss 0.3939, Learning Rate 0.0078
+Epoch 24/50: Train Acc 89.4500%, Train Loss 0.3560, Learning Rate 0.0070
+Epoch 25/50: Train Acc 91.9250%, Train Loss 0.2868, Learning Rate 0.0062
+Epoch 26/50: Train Acc 94.1250%, Train Loss 0.2270, Learning Rate 0.0054
+Epoch 27/50: Train Acc 96.1000%, Train Loss 0.1660, Learning Rate 0.0047
+Epoch 28/50: Train Acc 97.2583%, Train Loss 0.1344, Learning Rate 0.0041
+Epoch 29/50: Train Acc 98.0833%, Train Loss 0.1101, Learning Rate 0.0034
+Epoch 30/50: Train Acc 98.6000%, Train Loss 0.0862, Learning Rate 0.0029
+Validation: 70.5711%
+Epoch 31/50: Train Acc 99.1083%, Train Loss 0.0725, Learning Rate 0.0023
+Epoch 32/50: Train Acc 99.2583%, Train Loss 0.0623, Learning Rate 0.0019
+Epoch 33/50: Train Acc 99.4750%, Train Loss 0.0549, Learning Rate 0.0014
+Epoch 34/50: Train Acc 99.5500%, Train Loss 0.0512, Learning Rate 0.0011
+Epoch 35/50: Train Acc 99.5083%, Train Loss 0.0472, Learning Rate 0.0007
+Epoch 36/50: Train Acc 99.6500%, Train Loss 0.0449, Learning Rate 0.0005
+Epoch 37/50: Train Acc 99.7500%, Train Loss 0.0420, Learning Rate 0.0003
+Epoch 38/50: Train Acc 99.6583%, Train Loss 0.0407, Learning Rate 0.0001
+Epoch 39/50: Train Acc 99.7583%, Train Loss 0.0405, Learning Rate 0.0000
+Epoch 40/50: Train Acc 99.7417%, Train Loss 0.0403, Learning Rate 0.0000
+Validation: 71.9347%

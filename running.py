@@ -45,7 +45,6 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
     batch_time_m = AverageMeter()
     data_time_m = AverageMeter()
     losses_m = AverageMeter()
-    
     end = time.time()
     last_idx = len(train_loader) - 1
     num_updates = epoch * len(train_loader)
@@ -73,7 +72,7 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         num_updates += 1
         batch_time_m.update(time.time() - end)
         
-        if last_batch:# or idx % config.log_interval == 0:
+        if last_batch or idx % config.log_interval == 0:
             lr = optimizer.param_groups[0]['lr']
 
             if config.distributed:

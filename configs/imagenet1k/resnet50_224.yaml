@@ -9,7 +9,7 @@ data:
   name: imagenet1k
   image_size: 256
   input_size: 224
-  batch_size: 16
+  batch_size: 64
   num_workers: 8
 
 optim:

@@ -6,6 +6,10 @@ from utils import get_parameter_num
 from configs import config, update_cfg, preprocess_cfg
 from log import setup_default_logging
 
+from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+from timm.utils import ModelEma
+from timm.data.mixup import Mixup
+
 import os
 import argparse
 import yaml
@@ -131,6 +135,3 @@ def main():
 
 if __name__ == "__main__":
     main() 
-
-
-
