@@ -39,7 +39,7 @@ def setup4training(model, config):
 
     return optimizer, scheduler, scaler
 
-def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger，mixup_fn=None):
+def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger, mixup_fn=None):
     model.train()
 
     batch_time_m = AverageMeter()
