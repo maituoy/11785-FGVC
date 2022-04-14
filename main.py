@@ -32,8 +32,8 @@ def parse_argument():
 
 def create_model(config):
 
-    name = config.model.backbone.name
-    num_classes = config.model.head.num_classes
+    name = 'resnet50'
+    num_classes = 200
     pretrain = config.model.pretrained.pretrain
     pretrained_path = config.model.pretrained.path
 
@@ -57,13 +57,8 @@ def create_model(config):
         raise NotImplementedError
 
     return model
-
 def main():
-    setup_default_logging()
-    args, config_overrided = parse_argument()
-    print(args.config)
-    update_cfg(config, args.config, config_overrided)
-    preprocess_cfg(config, args.local_rank)
+    
 
     if 'WORLD_SIZE' in os.environ:
         config.distributed = int(os.environ['WORLD_SIZE']) > 1
@@ -91,15 +86,18 @@ def main():
     
 
     model = create_model(config)
+    model.cuda() 
     
+    #-----------------------------------------------------------------------------------------------------------
+    #Section for mixup & cutmix: 2 in 1 easy game
     mixup_fn = None
     mixup_active = config.train.mixup > 0 or config.train.cutmix > 0. or config.train.cutmix_minmax is not None
     if mixup_active:
-        logger.info('Mixup is activated!')
+        print("Mixup is activated!")
         mixup_fn = Mixup(
             mixup_alpha=config.train.mixup, cutmix_alpha=config.train.cutmix, cutmix_minmax=config.train.cutmix_minmax,
             prob=config.train.mixup_prob, switch_prob=config.train.mixup_switch_prob, mode=config.train.mixup_mode,
-            label_smoothing=config.train.smoothing, num_classes=config.train.nb_classes)
+            label_smoothing=config.train.smoothing, num_classes=config.model.num_classes)
             
     if mixup_fn is not None:
         #smoothing is handled with mixup label transform
@@ -109,7 +107,7 @@ def main():
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
-    logger.info('criterion = %s' % str(criterion))
+    print("criterion = %s" % str(criterion))
     
     #-----------------------------------------------------------------------------------------------------------
 
@@ -121,16 +119,13 @@ def main():
         model_ema = ModelEma(
             model,
             decay=config.train.model_ema_decay,
-            device='cpu' if args.model_ema_force_cpu else '',
+            device='cpu' if config.train.ema_force_cpu else '',
             resume='')
-        logger.info('Using EMA with decay = %.8f' % config.train.model_ema_decay)
-        model = model_ema.cuda()
-    else:
-        model = model.cuda()    
+        print("Using EMA with decay = %.8f" % config.train.model_ema_decay)    
     #-----------------------------------------------------------------------------------------------------------
     
 
-    train_loader, val_loader = create_dataloader(config, logger)
+    train_loader, val_loader = create_dataloader(config,logger)
     
     config.data.batches = len(train_loader)
 
@@ -152,16 +147,14 @@ def main():
         with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
             yaml.dump(config.to_dict(), f)
 
-
     for epoch in range(num_epochs):
 
         if config.distributed and hasattr(train_loader.sampler, 'set_epoch'):
             train_loader.sampler.set_epoch(epoch)
-        
         train_metrics = train_one_epoch(epoch, model, train_loader,
                                         optimizer, criterion, scheduler,
-                                        scaler, config, logger,mixup_fn)
-        eval_metrics = val_one_epoch(model, val_loader, criterion, config, logger,mixup_fn)
+                                        scaler, config,logger,mixup_fn = mixup_fn,model_ema=model_ema)
+        eval_metrics = val_one_epoch(model, val_loader, config,logger)
 
 
 
