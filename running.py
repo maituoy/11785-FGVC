@@ -39,9 +39,8 @@ def setup4training(model, config):
 
     return optimizer, scheduler, scaler
 
-def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger, mixup_fn=None):
+def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger, mixup_fn=None,model_ema=None):
     model.train()
-
     batch_time_m = AverageMeter()
     data_time_m = AverageMeter()
     losses_m = AverageMeter()
@@ -54,8 +53,8 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         data_time_m.update(time.time() - end)
 
         samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
-        if mixup_fn is not None:
-              samples, targets = mixup_fn(samples, targets)
+        #if mixup_fn:
+        samples, targets = mixup_fn(samples, targets)
         with torch.cuda.amp.autocast():  
             outputs = model(samples)
             loss = criterion(outputs, targets)
@@ -66,7 +65,8 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         scaler.step(optimizer) 
         scaler.update()
         torch.cuda.synchronize()
-
+        if model_ema is not None:
+          model_ema.update(model)
         if not config.distributed:
             losses_m.update(loss.item(), samples.size(0))
 
@@ -102,13 +102,13 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         torch.cuda.empty_cache()    
     return OrderedDict([('train_loss', losses_m.avg)])
         
-def val_one_epoch(model, test_loader, criterion, config, logger,mixup_fn=None):
+def val_one_epoch(model, test_loader, config, logger):
 
     batch_time_m = AverageMeter()
     losses_m = AverageMeter()
     top1_m = AverageMeter()
     top5_m = AverageMeter()
-
+    criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 
     num_steps = len(test_loader)
@@ -119,8 +119,6 @@ def val_one_epoch(model, test_loader, criterion, config, logger,mixup_fn=None):
         for idx, (samples, targets) in enumerate(test_loader):
             last_batch = last_idx == idx
             samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
-            if mixup_fn is not None:
-              samples, targets = mixup_fn(samples, targets)
             output = model(samples)
 
             loss = criterion(output, targets)
