@@ -101,7 +101,7 @@ def main():
         mixup_fn = Mixup(
             mixup_alpha=config.train.mixup, cutmix_alpha=config.train.cutmix, cutmix_minmax=config.train.cutmix_minmax,
             prob=config.train.mixup_prob, switch_prob=config.train.mixup_switch_prob, mode=config.train.mixup_mode,
-            label_smoothing=config.train.smoothing, num_classes=config.model.num_classes)
+            label_smoothing=config.train.smoothing, num_classes=config.model.head.num_classes)
             
     if mixup_fn is not None:
         #smoothing is handled with mixup label transform
