@@ -115,6 +115,15 @@ def main():
     else:
         raise NotImplementedError
 
+
+    # start update frequency
+
+    print("config.data.batch_size",config.data.batch_size)
+    print("config.update_freq",config.update_frequency)
+    print("config.world_size",config.world_size)
+    total_batch_size = config.data.batch_size * config.update_frequency * config.world_size
+    num_training_steps_per_epoch = config.data.batches // total_batch_size
+
     for epoch in range(num_epochs):
 
         if config.distributed and hasattr(train_loader.sampler, 'set_epoch'):
@@ -122,13 +131,10 @@ def main():
         
         train_metrics = train_one_epoch(epoch, model, train_loader,
                                         optimizer, criterion, scheduler,
-                                        scaler, config, logger)
+                                        scaler, config, logger, num_training_steps_per_epoch, config.update_frequency)
         eval_metrics = val_one_epoch(model, val_loader, criterion, config, logger)
 
 
 
 if __name__ == "__main__":
-    main() 
-
-
-
+    main()

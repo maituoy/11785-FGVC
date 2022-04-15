@@ -39,7 +39,8 @@ def setup4training(model, config):
 
     return optimizer, scheduler, scaler
 
-def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger):
+def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger, num_training_steps_per_epoch, update_freq,
+                  ):
     model.train()
 
     batch_time_m = AverageMeter()
@@ -50,25 +51,70 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
     last_idx = len(train_loader) - 1
     num_updates = epoch * len(train_loader)
 
+    start_steps=epoch * num_training_steps_per_epoch
+
     for idx, (samples, targets) in enumerate(train_loader):
         last_batch = last_idx == idx
         data_time_m.update(time.time() - end)
+        
+        if config.if_update_freq:
+          ### update frequency
+          step = idx // update_freq
+          if step >= num_training_steps_per_epoch:
+              continue
+          it = start_steps + step  # global training iteration
+          # Update LR & WD for the first acc
+
+
+          lr_schedule_values = config.cosine_scheduler(
+          config.optim.lr, config.min_lr, config.optim.epochs, num_training_steps_per_epoch,
+          warmup_epochs=config.optim.warmup_epochs, warmup_steps=config.warmup_steps
+          )
+          if config.weight_decay_end is None:
+            config.weight_decay_end = config.weight_decay
+            wd_schedule_values = config.cosine_scheduler(
+            config.weight_decay, config.weight_decay_end, config.optim.epochs, num_training_steps_per_epoch)
+
+        
+          if lr_schedule_values is not None or wd_schedule_values is not None and idx % update_freq == 0:
+            for i, param_group in enumerate(optimizer.param_groups):
+                if lr_schedule_values is not None:
+                    param_group["lr"] = lr_schedule_values[it] * param_group["lr_scale"]
+                if wd_schedule_values is not None and param_group["weight_decay"] > 0:
+                    param_group["weight_decay"] = wd_schedule_values[it]
+
+
+
 
         samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
 
+
         with torch.cuda.amp.autocast():  
             outputs = model(samples)
-            loss = criterion(outputs, targets)
-        
-        optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.unscale_(optimizer)
-        scaler.step(optimizer) 
-        scaler.update()
-        torch.cuda.synchronize()
+            loss = criterion(outputs, targets) 
+        if config.if_update_freq == True:
+          loss /= update_freq
+          scaler.scale(loss).backward()
+          if (idx + 1) % update_freq == 0:
+            scaler.step(optimizer) 
+            optimizer.zero_grad()
 
-        loss = reduce_tensor(loss)
-        losses_m.update(loss.item(), samples.size(0))
+            
+
+
+        else:
+          optimizer.zero_grad()
+          scaler.scale(loss).backward()
+          scaler.unscale_(optimizer)
+          scaler.step(optimizer) 
+          scaler.update()
+          torch.cuda.synchronize()
+
+        if not config.distributed:
+            losses_m.update(loss.item(), samples.size(0))
+        else:
+            reduced_loss = reduce_tensor(loss)
+            losses_m.update(reduced_loss.item(), samples.size(0))
 
         num_updates += 1
         batch_time_m.update(time.time() - end)
@@ -76,10 +122,6 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         if last_batch or idx % config.log_interval == 0:
             lr = optimizer.param_groups[0]['lr']
 
-            if config.distributed:
-                reduced_loss = reduce_tensor(loss)
-                losses_m.update(reduced_loss.item(), samples.size(0))
-            
             if config.local_rank == 0:
                 logger.info(
                     'Train: {} [{:>4d}/{} ({:>3.0f}%)]  '
