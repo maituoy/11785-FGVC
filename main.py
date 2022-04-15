@@ -1,5 +1,6 @@
 from Models.ResNet import resnet50
 from Models.ViT import vit_s16
+from Models.ResNet_c1 import resnet50_c1
 from Dataset import create_dataloader
 from running import setup4training, train_one_epoch, val_one_epoch
 from utils import get_parameter_num
@@ -49,6 +50,11 @@ def create_model(config):
             model = vit_s16(config, pretrained=False)
             model.head = nn.Linear(384, num_classes)
 
+    elif name == 'resnet50_c1':
+        if pretrain:
+            raise NotImplementedError
+        else:
+            model = resnet50_c1(num_classes)
     else:
         raise NotImplementedError
 

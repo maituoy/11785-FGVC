@@ -1,4 +1,4 @@
-exp: resnet50_224
+exp: resnet50_c1_224
 seed: 50
 use_amp: True
 sync_bn: False
@@ -9,8 +9,8 @@ data:
   name: CUB2011
   image_size: 256
   input_size: 224
-  batch_size: 32
-  num_workers: 8
+  batch_size: 16
+  num_workers: 4
 
 optim:
   name: sgd
@@ -27,9 +27,9 @@ loss:
 model:
   pretrained: 
     path: None
-    pretrain: True
+    pretrain: False
   backbone:
-    name: resnet50
+    name: resnet50_c1
   head:
     num_classes: 200
 

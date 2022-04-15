@@ -126,4 +126,9 @@ class ResNet(nn.Module):
             layers.append(block(self.inplanes, dim, drop_path=drop_path[i+1], stride=stride))
 
         return nn.Sequential(*layers)
-        
+
+def resnet50_c1(num_classes=1000, **kwargs):
+
+    model = ResNet(Bottleneck, num_classes=num_classes, **kwargs)
+
+    return model

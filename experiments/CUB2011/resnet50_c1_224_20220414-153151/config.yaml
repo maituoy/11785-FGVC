@@ -1,0 +1,55 @@
+data:
+  batch_size: 32
+  batches: 23
+  image_size: 256
+  input_size: 224
+  name: CUB2011
+  num_workers: 8
+  root: /media/Bootes/dl_fgvc/CUB2011
+  sampler:
+    name: null
+    param: {}
+device: cuda:0
+distributed: true
+eval_metric: val_top1
+exp: resnet50_c1_224
+local_rank: 0
+log_interval: 50
+loss:
+  label_smoothing: 0.0
+  name: ce
+model:
+  backbone:
+    name: resnet50_c1
+    param: {}
+  head:
+    num_classes: 200
+  pretrained:
+    path: null
+    pretrain: false
+optim:
+  epochs: 100
+  lr: 0.03
+  name: sgd
+  param: {}
+  sched: cosine
+  warmup_epochs: 5
+  weight_decay: 0.0001
+output_dir: ./experiments/CUB2011/resnet50_c1_224_20220414-153151
+rank: 0
+seed: 50
+sync_bn: false
+train:
+  cutmix: 1.0
+  cutmix_minmax: null
+  mixup: 0.8
+  mixup_mode: batch
+  mixup_prob: 1.0
+  mixup_switch_prob: 0.5
+  model_ema: false
+  model_ema_decay: 0.9999
+  model_ema_eval: false
+  model_ema_force_cpu: false
+  smoothing: 0.1
+use_amp: true
+world_size: 8
