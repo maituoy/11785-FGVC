@@ -39,11 +39,14 @@ def setup4training(model, config):
 
     return optimizer, scheduler, scaler
 
+
 def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger, mixup_fn=None,model_ema=None):
+
     model.train()
     batch_time_m = AverageMeter()
     data_time_m = AverageMeter()
     losses_m = AverageMeter()
+    
     end = time.time()
     last_idx = len(train_loader) - 1
     num_updates = epoch * len(train_loader)
@@ -53,8 +56,10 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         data_time_m.update(time.time() - end)
 
         samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
-        #if mixup_fn:
+
+        if mixup_fn is not None:
         samples, targets = mixup_fn(samples, targets)
+
         with torch.cuda.amp.autocast():  
             outputs = model(samples)
             loss = criterion(outputs, targets)
@@ -65,31 +70,32 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         scaler.step(optimizer) 
         scaler.update()
         torch.cuda.synchronize()
+        
         if model_ema is not None:
           model_ema.update(model)
+          
         if not config.distributed:
             losses_m.update(loss.item(), samples.size(0))
+        else:
+            reduced_loss = reduce_tensor(loss)
+            losses_m.update(reduced_loss.item(), samples.size(0))
 
         num_updates += 1
         batch_time_m.update(time.time() - end)
-        
+
         if last_batch or idx % config.log_interval == 0:
             lr = optimizer.param_groups[0]['lr']
 
-            if config.distributed:
-                reduced_loss = reduce_tensor(loss)
-                losses_m.update(reduced_loss.item(), samples.size(0))
-            
             if config.local_rank == 0:
                 logger.info(
                     'Train: {} [{:>4d}/{} ({:>3.0f}%)]  '
                     'Loss: {loss.val:>9.6f} ({loss.avg:>6.4f})  '
                     'Time: {batch_time.val:.3f}s, {rate:>7.2f}/s  '
                     '({batch_time.avg:.3f}s, {rate_avg:>7.2f}/s)  '
-                    'LR: {lr:.3e}  '   
+                    'LR: {lr:.3e}  '
                     'Data: {data_time.val:.3f} ({data_time.avg:.3f})'.format(
                         epoch,
-                        idx, last_idx,
+                        idx, len(train_loader),
                         100. * idx / last_idx,
                         loss=losses_m,
                         batch_time=batch_time_m,
@@ -102,6 +108,7 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         torch.cuda.empty_cache()    
     return OrderedDict([('train_loss', losses_m.avg)])
         
+
 def val_one_epoch(model, test_loader, config, logger):
 
     batch_time_m = AverageMeter()
@@ -119,13 +126,14 @@ def val_one_epoch(model, test_loader, config, logger):
         for idx, (samples, targets) in enumerate(test_loader):
             last_batch = last_idx == idx
             samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
+
             output = model(samples)
 
             loss = criterion(output, targets)
             acc1, acc5 = accuracy(output, targets, topk=(1,5))
 
             if config.distributed:
-                loss = reduce_tensor(loss)
+                reduced_loss = reduce_tensor(loss)
                 
                 acc1 = reduce_tensor(acc1)
                 acc2 = reduce_tensor(acc5)
@@ -138,10 +146,10 @@ def val_one_epoch(model, test_loader, config, logger):
             batch_time_m.update(time.time() - end)
             end = time.time()
 
-            if config.local_rank == 0 and last_batch:
+            if config.local_rank == 0 and (last_batch or idx % config.log_interval == 0):
                 log_name = 'Test'
                 logger.info(
-                    '{0}: [{1:>4d}/{2}]'
+                    '{0}: [{1:>4d}/{2}]  '
                     'Time: {batch_time.val:.3f} ({batch_time.avg:.3f})  '
                     'Loss: {loss.val:>7.4f} ({loss.avg:>6.4f})  '
                     'Acc@1: {top1.val:>7.4f} ({top1.avg:>7.4f})  '

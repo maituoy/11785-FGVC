@@ -6,10 +6,6 @@ from utils import get_parameter_num
 from configs import config, update_cfg, preprocess_cfg
 from log import setup_default_logging
 
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
-from timm.utils import ModelEma
-from timm.data.mixup import Mixup
-
 import os
 import argparse
 import yaml
@@ -90,6 +86,7 @@ def main():
     
 
     model = create_model(config)
+
     model.cuda() 
     
     #-----------------------------------------------------------------------------------------------------------
@@ -127,7 +124,6 @@ def main():
             resume='')
         print("Using EMA with decay = %.8f" % config.train.model_ema_decay)    
     #-----------------------------------------------------------------------------------------------------------
-    
 
     train_loader, val_loader = create_dataloader(config,logger)
     
@@ -151,6 +147,7 @@ def main():
         with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
             yaml.dump(config.to_dict(), f)
 
+
     for epoch in range(num_epochs):
 
         if config.distributed and hasattr(train_loader.sampler, 'set_epoch'):
@@ -158,9 +155,10 @@ def main():
         train_metrics = train_one_epoch(epoch, model, train_loader,
                                         optimizer, criterion, scheduler,
                                         scaler, config,logger,mixup_fn = mixup_fn,model_ema=model_ema)
-        eval_metrics = val_one_epoch(model, val_loader, config,logger)
+
+        eval_metrics = val_one_epoch(model, val_loader, config, logger)
 
 
 
 if __name__ == "__main__":
-    main() 
+    main()
