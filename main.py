@@ -28,8 +28,8 @@ def parse_argument():
 
 def create_model(config):
 
-    name = config.model.backbone.name
-    num_classes = config.model.head.num_classes
+    name = 'resnet50'
+    num_classes = 200
     pretrain = config.model.pretrained.pretrain
     pretrained_path = config.model.pretrained.path
 
@@ -86,9 +86,46 @@ def main():
     
 
     model = create_model(config)
-    model = model.cuda()
 
-    train_loader, val_loader = create_dataloader(config, logger)
+    model.cuda() 
+    
+    #-----------------------------------------------------------------------------------------------------------
+    #Section for mixup & cutmix: 2 in 1 easy game
+    mixup_fn = None
+    mixup_active = config.train.mixup > 0 or config.train.cutmix > 0. or config.train.cutmix_minmax is not None
+    if mixup_active:
+        print("Mixup is activated!")
+        mixup_fn = Mixup(
+            mixup_alpha=config.train.mixup, cutmix_alpha=config.train.cutmix, cutmix_minmax=config.train.cutmix_minmax,
+            prob=config.train.mixup_prob, switch_prob=config.train.mixup_switch_prob, mode=config.train.mixup_mode,
+            label_smoothing=config.train.smoothing, num_classes=config.model.head.num_classes)
+            
+    if mixup_fn is not None:
+        #smoothing is handled with mixup label transform
+        criterion = SoftTargetCrossEntropy()
+    elif config.train.smoothing > 0.:
+        criterion = LabelSmoothingCrossEntropy(smoothing=config.train.smoothing)
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
+
+    print("criterion = %s" % str(criterion))
+    
+    #-----------------------------------------------------------------------------------------------------------
+
+    #-----------------------------------------------------------------------------------------------------------
+    ##Section for ema:
+    model_ema = None
+    if config.train.model_ema:
+        # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
+        model_ema = ModelEma(
+            model,
+            decay=config.train.model_ema_decay,
+            device='cpu' if config.train.ema_force_cpu else '',
+            resume='')
+        print("Using EMA with decay = %.8f" % config.train.model_ema_decay)    
+    #-----------------------------------------------------------------------------------------------------------
+
+    train_loader, val_loader = create_dataloader(config,logger)
     
     config.data.batches = len(train_loader)
 
@@ -109,21 +146,17 @@ def main():
         output_dir = config.output_dir
         with open(os.path.join(config.output_dir, 'config.yaml'), 'w') as f:
             yaml.dump(config.to_dict(), f)
-    
-    if config.loss.name == 'ce':
-        criterion = nn.CrossEntropyLoss(label_smoothing=config.loss.label_smoothing)
-    else:
-        raise NotImplementedError
+
 
     for epoch in range(num_epochs):
 
         if config.distributed and hasattr(train_loader.sampler, 'set_epoch'):
             train_loader.sampler.set_epoch(epoch)
-        
         train_metrics = train_one_epoch(epoch, model, train_loader,
                                         optimizer, criterion, scheduler,
-                                        scaler, config, logger)
-        eval_metrics = val_one_epoch(model, val_loader, criterion, config, logger)
+                                        scaler, config,logger,mixup_fn = mixup_fn,model_ema=model_ema)
+
+        eval_metrics = val_one_epoch(model, val_loader, config, logger)
 
 
 
