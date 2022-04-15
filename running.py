@@ -72,7 +72,7 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         torch.cuda.synchronize()
         
         if model_ema is not None:
-          model_ema.update(model)
+            model_ema.update(model)
           
         if not config.distributed:
             losses_m.update(loss.item(), samples.size(0))
