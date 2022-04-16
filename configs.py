@@ -57,15 +57,11 @@ config.optim.sched = 'cosine'
 config.optim.epochs = 100
 config.optim.warmup_epochs = 5
 
-# Criterion
-config.loss.name = 'ce'
-config.loss.label_smoothing = 0.0
-
 # Model
 config.model.pretrained.path = None
 config.model.pretrained.pretrain = True
 config.model.backbone.name = 'resnet50'
-config.model.backbone.param = dict()
+config.model.backbone.drop_path = 0.1
 config.model.head.num_classes = 200
 
 

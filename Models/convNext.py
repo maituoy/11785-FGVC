@@ -9,7 +9,7 @@ import torchvision.models as models
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
 import tarfile
-from utils import LayerNorm
+from modules import LayerNorm
 
 """convNext base"""
 

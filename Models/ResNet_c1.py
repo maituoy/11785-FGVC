@@ -9,7 +9,7 @@ import torchvision.models as models
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
 import tarfile
-from utils import LayerNorm
+from Models.modules import LayerNorm
 
 class Bottleneck(nn.Module):
     def __init__(self, in_channels, out_channels, drop_path=0, stride=1, first=False):
@@ -30,7 +30,10 @@ class Bottleneck(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0 else nn.Identity()
         
         self.first = first
-        self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        if first:
+            self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        else:
+            self.conv_skip = None
     
     def forward(self, x):
 

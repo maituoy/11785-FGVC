@@ -1,0 +1,37 @@
+exp: resnet50_c1_224
+seed: 11785
+use_amp: True
+eval_metric: val_top1
+
+data:
+  root: /media/Bootes/dl_fgvc/
+  name: CUB2011
+  image_size: 256
+  input_size: 224
+  batch_size: 16
+  num_workers: 8
+
+train:
+  model_ema: True
+  mixup: 0.8
+  cutmix: 1.0
+
+optim:
+  name: sgd
+  lr: 0.03
+  weight_decay: 0.0001
+  sched: cosine
+  epochs: 100
+  warmup_epochs: 5
+
+model:
+  pretrained: 
+    path: None
+    pretrain: False
+  backbone:
+    name: resnet50_c1
+    drop_path: 0.0
+  head:
+    num_classes: 200
+
+

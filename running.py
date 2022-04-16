@@ -9,7 +9,9 @@ from timm.utils import AverageMeter, accuracy
 from utils import reduce_tensor
 import time
 from collections import OrderedDict
+import logging
 
+logger = logging.getLogger(__name__)
 
 def setup4training(model, config):
 
@@ -40,7 +42,7 @@ def setup4training(model, config):
     return optimizer, scheduler, scaler
 
 
-def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, logger, mixup_fn=None,model_ema=None):
+def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler, scaler, config, mixup_fn=None,model_ema=None):
 
     model.train()
     batch_time_m = AverageMeter()
@@ -58,7 +60,7 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
 
         if mixup_fn is not None:
-        samples, targets = mixup_fn(samples, targets)
+            samples, targets = mixup_fn(samples, targets)
 
         with torch.cuda.amp.autocast():  
             outputs = model(samples)
@@ -66,6 +68,10 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
         
         optimizer.zero_grad()
         scaler.scale(loss).backward()
+
+        for name, param in model.named_parameters():
+            if param.grad is None:
+                print(name)
         scaler.unscale_(optimizer)
         scaler.step(optimizer) 
         scaler.update()
@@ -109,7 +115,7 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
     return OrderedDict([('train_loss', losses_m.avg)])
         
 
-def val_one_epoch(model, test_loader, config, logger):
+def val_one_epoch(model, test_loader, config):
 
     batch_time_m = AverageMeter()
     losses_m = AverageMeter()
@@ -160,6 +166,6 @@ def val_one_epoch(model, test_loader, config, logger):
             torch.cuda.empty_cache()
 
     metrics = OrderedDict([('val_loss', losses_m.avg), 
-                           ('val_top1', 'top1_m.avg'),
-                           ('val_top5', 'top5_m.avg')])
+                           ('val_top1', top1_m.avg),
+                           ('val_top5', top5_m.avg)])
     return metrics
