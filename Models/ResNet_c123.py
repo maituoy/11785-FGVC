@@ -11,18 +11,6 @@ from timm.models.registry import register_model
 import tarfile
 from utils import LayerNorm
 
-import sys
-sys.path.append('../')
-
-from functools import partial
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.models as models
-from timm.models.layers import trunc_normal_, DropPath
-from timm.models.registry import register_model
-import tarfile
-from utils import LayerNorm
 
 class Bottleneck(nn.Module):
     def __init__(self, in_channels, out_channels, drop_path=0, stride=1, first=False):
@@ -56,11 +44,9 @@ class Bottleneck(nn.Module):
 
         x = x.permute(0, 2, 3, 1) # (N, C, H, W) -> (N, H, W, C)
         x = self.conv2(x) # linear
-        x = x.permute(0, 3, 1, 2) # (N, H, W, C) -> (N, C, H, W)
 
         x = self.gelu(x)
 
-        x = x.permute(0, 2, 3, 1) # (N, C, H, W) -> (N, H, W, C)
         x = self.conv3(x)  # linear
         x = x.permute(0, 3, 1, 2) # (N, H, W, C) -> (N, C, H, W)
 
