@@ -30,7 +30,10 @@ class Bottleneck(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0 else nn.Identity()
         
         self.first = first
-        self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        if first: 
+            self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
+        else:
+            self.conv_skip = None
     
     def forward(self, x):
 

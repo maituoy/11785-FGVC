@@ -46,9 +46,8 @@ class Bottleneck(nn.Module):
         x = self.conv1(x) # linear
         x = x.permute(0, 3, 1, 2) # (N, H, W, C) -> (N, C, H, W)
 
-        x = self.layer_norm(x)
-
         x = self.conv2(x)
+        x = self.layer_norm(x)
 
         x = self.gelu(x)
 
