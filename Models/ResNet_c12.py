@@ -19,41 +19,45 @@ class Bottleneck(nn.Module):
         
         #self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.conv1 = nn.Linear(in_channels, out_channels)
-        #self.bn1 = nn.BatchNorm2d(out_channels)
+
         self.layer_norm = LayerNorm(out_channels, eps=1e-6, data_format="channels_first")
-        self.conv2 = nn.Conv2d(out_channels,s out_channel, kernel_size=3, stride=1, padding=1, bias=False, groups= out_channels)
-        #self.bn2 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False, groups= out_channels)
+
         #self.conv3 = nn.Conv2d(out_channels, self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.conv3 = nn.Linear(out_channels, self.expansion*out_channels)
-        #self.bn3 = nn.BatchNorm2d(self.expansion*out_channels)
-        
+
         self.gelu = nn.GELU()
         
         self.drop_path = DropPath(drop_path) if drop_path > 0 else nn.Identity()
         
         self.first = first
-        self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False, groups=in_channels)
-    
+        if first:
+            self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False, groups=in_channels)
+        else:
+            self.conv_skip = None
+            
     def forward(self, x):
 
         identity = x.clone()
         if self.first:
             identity = self.conv_skip(x)
 
-        x = self.conv1(x)
-        #x = self.bn1(x)
+        x = x.permute(0, 2, 3, 1) # (N, C, H, W) -> (N, H, W, C)
+        x = self.conv1(x) # linear
+        x = x.permute(0, 3, 1, 2) # (N, H, W, C) -> (N, C, H, W)
+
         x = self.layer_norm(x)
-        #x = self.relu(x)
 
         x = self.conv2(x)
-        #x = self.bn2(x)
+
         x = self.gelu(x)
 
-        x = self.conv3(x)
-        #x = self.bn3(x)
-        
+        x = x.permute(0, 2, 3, 1) # (N, C, H, W) -> (N, H, W, C)
+        x = self.conv3(x)  # linear
+        x = x.permute(0, 3, 1, 2) # (N, H, W, C) -> (N, C, H, W)
+
         x = self.drop_path(x) + identity
-        #x = self.relu(x)
+
         
         return x 
 
@@ -129,7 +133,7 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-def resnet50_c12(num_classes=1000, **kwargs):
+def resnet50_c12(num_classes=1000, **kwargs): # c12
 
     model = ResNet(Bottleneck, num_classes=num_classes, **kwargs)
 
