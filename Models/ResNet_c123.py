@@ -9,7 +9,7 @@ import torchvision.models as models
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
 import tarfile
-from utils import LayerNorm
+from Models.modules import LayerNorm
 
 class Bottleneck(nn.Module):
     def __init__(self, in_channels, out_channels, drop_path=0, stride=1, first=False):

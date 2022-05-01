@@ -9,7 +9,32 @@ import torchvision.models as models
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
 import tarfile
-from utils import LayerNorm
+# from Models.modules import LayerNorm
+class LayerNorm(nn.Module):
+    r""" LayerNorm that supports two data formats: channels_last (default) or channels_first. 
+    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with 
+    shape (batch_size, height, width, channels) while channels_first corresponds to inputs 
+    with shape (batch_size, channels, height, width).
+    """
+    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(normalized_shape))
+        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.eps = eps
+        self.data_format = data_format
+        if self.data_format not in ["channels_last", "channels_first"]:
+            raise NotImplementedError 
+        self.normalized_shape = (normalized_shape, )
+    
+    def forward(self, x):
+        if self.data_format == "channels_last":
+            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        elif self.data_format == "channels_first":
+            u = x.mean(1, keepdim=True)
+            s = (x - u).pow(2).mean(1, keepdim=True)
+            x = (x - u) / torch.sqrt(s + self.eps)
+            x = self.weight[:, None, None] * x + self.bias[:, None, None]
+            return x
 
 class Bottleneck(nn.Module):
     def __init__(self, in_channels, out_channels, drop_path=0, stride=1, first=False):
@@ -20,9 +45,9 @@ class Bottleneck(nn.Module):
         #self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.conv1 = nn.Linear(in_channels, out_channels)
 
-        self.layer_norm = LayerNorm(out_channels, eps=1e-6, data_format="channels_first")
+        
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False, groups= out_channels)
-
+        self.layer_norm = LayerNorm(out_channels, eps=1e-6)
         #self.conv3 = nn.Conv2d(out_channels, self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.conv3 = nn.Linear(out_channels, self.expansion*out_channels)
 
@@ -32,7 +57,7 @@ class Bottleneck(nn.Module):
         
         self.first = first
         if first:
-            self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False, groups=in_channels)
+            self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)#, groups=in_channels)
         else:
             self.conv_skip = None
             
@@ -46,23 +71,25 @@ class Bottleneck(nn.Module):
         x = self.conv1(x) # linear
         x = x.permute(0, 3, 1, 2) # (N, H, W, C) -> (N, C, H, W)
 
+        x = self.conv2(x)
+        x = x.permute(0, 2, 3, 1)
         x = self.layer_norm(x)
 
-        x = self.conv2(x)
-
         x = self.gelu(x)
-
-        x = x.permute(0, 2, 3, 1) # (N, C, H, W) -> (N, H, W, C)
         x = self.conv3(x)  # linear
         x = x.permute(0, 3, 1, 2) # (N, H, W, C) -> (N, C, H, W)
 
         x = self.drop_path(x) + identity
 
-        
         return x 
 
 class ResNet(nn.Module):
-    def __init__(self, block=Bottleneck, depths = [3,4,6,3], dims=[64, 128, 256, 512], num_classes=1000, in_channels=3, drop_path=0.0):
+    def __init__(self, block=Bottleneck, 
+                       depths = [3,4,6,3], 
+                       dims=[64, 128, 256, 512], 
+                       num_classes=1000, 
+                       in_channels=3, 
+                       drop_path=0.0):
         super().__init__()
 
         self.expansion = 4
@@ -117,8 +144,9 @@ class ResNet(nn.Module):
         
         x = x.reshape(x.shape[0], -1)
         x = self.fc(x)
-        
+
         return x
+
 
     def make_stage(self, block, depth, dim, drop_path=[], stride=1):
 
@@ -136,5 +164,9 @@ class ResNet(nn.Module):
 def resnet50_c12(num_classes=1000, **kwargs): # c12
 
     model = ResNet(Bottleneck, num_classes=num_classes, **kwargs)
+
+    # for name, param in model.named_parameters():
+    #     if 'conv_skip' in name:
+    #         param.requires_grad = False
 
     return model

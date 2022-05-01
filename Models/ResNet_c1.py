@@ -9,7 +9,32 @@ import torchvision.models as models
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
 import tarfile
-from Models.modules import LayerNorm
+# from Models.modules import LayerNorm
+class LayerNorm(nn.Module):
+    r""" LayerNorm that supports two data formats: channels_last (default) or channels_first. 
+    The ordering of the dimensions in the inputs. channels_last corresponds to inputs with 
+    shape (batch_size, height, width, channels) while channels_first corresponds to inputs 
+    with shape (batch_size, channels, height, width).
+    """
+    def __init__(self, normalized_shape, eps=1e-6, data_format="channels_last"):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(normalized_shape))
+        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.eps = eps
+        self.data_format = data_format
+        if self.data_format not in ["channels_last", "channels_first"]:
+            raise NotImplementedError 
+        self.normalized_shape = (normalized_shape, )
+    
+    def forward(self, x):
+        if self.data_format == "channels_last":
+            return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
+        elif self.data_format == "channels_first":
+            u = x.mean(1, keepdim=True)
+            s = (x - u).pow(2).mean(1, keepdim=True)
+            x = (x - u) / torch.sqrt(s + self.eps)
+            x = self.weight[:, None, None] * x + self.bias[:, None, None]
+            return x
 
 class Bottleneck(nn.Module):
     def __init__(self, in_channels, out_channels, drop_path=0, stride=1, first=False):
@@ -18,7 +43,7 @@ class Bottleneck(nn.Module):
         self.expansion = 4
         
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
-        #self.bn1 = nn.BatchNorm2d(out_channels)
+        # self.bn1 = nn.BatchNorm2d(out_channels)
         self.layer_norm = LayerNorm(out_channels, eps=1e-6, data_format="channels_first")
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
         #self.bn2 = nn.BatchNorm2d(out_channels)
@@ -42,7 +67,7 @@ class Bottleneck(nn.Module):
             identity = self.conv_skip(x)
 
         x = self.conv1(x)
-        #x = self.bn1(x)
+        # x = self.bn1(x)
         x = self.layer_norm(x)
         #x = self.relu(x)
 
@@ -71,7 +96,8 @@ class ResNet(nn.Module):
 #             nn.Conv2d(in_chans, dims[0], kernel_size=4, stride=4),
 #             LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
             nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False),
-            LayerNorm(64, eps=1e-6, data_format="channels_first"),#nn.BatchNorm2d(64),
+            LayerNorm(64, eps=1e-6, data_format="channels_first"),
+            #nn.BatchNorm2d(64),
             nn.GELU(), #nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
@@ -79,6 +105,7 @@ class ResNet(nn.Module):
         # the rest 3 downsampling layers
         for i in range(3):
             downsample_layer = nn.Sequential(
+                    # nn.BatchNorm2d(dims[i]*self.expansion), 
                     LayerNorm(dims[i]*self.expansion, eps=1e-6, data_format="channels_first"),
                     nn.Conv2d(dims[i]*self.expansion, dims[i]*self.expansion, kernel_size=2, stride=2),
             )
@@ -98,7 +125,7 @@ class ResNet(nn.Module):
         self.stages.append(self.stage4)
         
     
-        self.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        # self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.norm = nn.LayerNorm(2048, eps=1e-6) # final norm layer
         
         self.fc = nn.Linear(2048, num_classes)
@@ -109,7 +136,7 @@ class ResNet(nn.Module):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
         
-        #x = self.avgpool(x)
+        # x = self.avgpool(x)
         x = self.norm(x.mean([-2, -1])) 
         
         x = x.reshape(x.shape[0], -1)
@@ -133,5 +160,7 @@ class ResNet(nn.Module):
 def resnet50_c1(num_classes=1000, **kwargs):
 
     model = ResNet(Bottleneck, num_classes=num_classes, **kwargs)
-
+    # for name, param in model.named_parameters():
+    #     if 'conv_skip' in name:
+    #         param.requires_grad = False
     return model

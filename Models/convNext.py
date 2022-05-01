@@ -9,7 +9,7 @@ import torchvision.models as models
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
 import tarfile
-from modules import LayerNorm
+from Models.modules import LayerNorm
 
 """convNext base"""
 
@@ -64,10 +64,6 @@ class ConvNeXt(nn.Module):
 
         self.head.weight.data.mul_(head_init_scale)
         self.head.bias.data.mul_(head_init_scale)
-        model.head = nn.Linear(768, 120)
-        # self.head = nn.Linear(dims[-1], num_classes)
-        model.head.weight.data.mul_(1)
-        model.head.bias.data.mul_(1)
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.Linear)):
