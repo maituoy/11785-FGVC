@@ -55,11 +55,7 @@ class Bottleneck(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0 else nn.Identity()
         
         self.first = first
-<<<<<<< HEAD
         if first:
-=======
-        if first: 
->>>>>>> 5fb310d9c61db6da6dd70f6f8fd3087789098709
             self.conv_skip = nn.Conv2d(in_channels,  self.expansion*out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         else:
             self.conv_skip = None
