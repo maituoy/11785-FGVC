@@ -1,3 +1,6 @@
+"""
+Some codes in this model are borrowed from the ConvNext Paper.
+"""
 import sys
 sys.path.append('../')
 
