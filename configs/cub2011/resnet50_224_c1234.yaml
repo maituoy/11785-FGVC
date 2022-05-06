@@ -1,4 +1,4 @@
-exp: resnet50_224_dog
+exp: resnet50_224_c1234
 seed: 11785
 use_amp: True
 sync_bn: False
@@ -6,10 +6,10 @@ eval_metric: val_top1
 
 data:
   root: /media/Bootes/dl_fgvc/
-  name: dog
+  name: CUB2011
   image_size: 256
   input_size: 224
-  batch_size: 16
+  batch_size: 32
   num_workers: 8
 
 train:
@@ -29,12 +29,12 @@ optim:
 
 model:
   pretrained: 
-    path: /home/dlfgvc/maituoy/11785-FGVC/best_checkpoints/model_best.pth.tar
+    path: /home/dlfgvc/maituoy/11785-FGVC/best_checkpoints/model_best_c1234.pth.tar
     pretrain: True
   backbone:
-    name: resnet50
+    name: convnext
     drop_path: 0.0
   head:
-    num_classes: 120
+    num_classes: 200
 
 

@@ -3,7 +3,7 @@ import torch
 import torch.nn as  nn
 import torch.nn.functional as F
 from timm.models.layers import DropPath
-from torch.hub import load_state_dict_from_url
+
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, downsample=None, drop_path=0, stride=1):
@@ -162,10 +162,9 @@ class ResNet(nn.Module):
 def resnet50(pretrained=False, progress=True, **kwargs):
 
     model = ResNet(Bottleneck, 50, num_classes=1000, **kwargs)
-
-    if pretrained:
-        state_dict = load_state_dict_from_url("https://download.pytorch.org/models/resnet50-0676ba61.pth", progress=progress)
-        model.load_state_dict(state_dict)
+    # if pretrained:
+    #     state_dict = load_state_dict_from_url("https://download.pytorch.org/models/resnet50-0676ba61.pth", progress=progress)
+    #     model.load_state_dict(state_dict)
 
     return model
         

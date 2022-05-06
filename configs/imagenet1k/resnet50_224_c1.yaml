@@ -1,4 +1,4 @@
-exp: resnet50_224
+exp: resnet50_c1_224
 seed: 11785
 use_amp: True
 eval_metric: val_top1
@@ -31,7 +31,7 @@ model:
     path: None
     pretrain: False
   backbone:
-    name: resnet50
+    name: resnet50_c1
     drop_path: 0.0
   head:
     num_classes: 1000

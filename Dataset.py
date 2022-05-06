@@ -170,7 +170,7 @@ def create_dataloader(config, logger):
                                   batch_size=config.data.batch_size,
                                   num_workers=config.data.num_workers,
                                   drop_last=True,
-                                  pin_memory=False)
+                                  pin_memory=True)
 
     else:
         raise NotImplementedError
@@ -180,7 +180,7 @@ def create_dataloader(config, logger):
                              sampler=test_sampler,
                              batch_size=config.data.batch_size,
                              num_workers=config.data.num_workers,
-                             pin_memory=False)
+                             pin_memory=True)
     
     return train_loader, test_loader
 

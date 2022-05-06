@@ -1,4 +1,4 @@
-exp: resnet50_224_dog
+exp: resnet50_224_dog_c12
 seed: 11785
 use_amp: True
 sync_bn: False
@@ -29,10 +29,10 @@ optim:
 
 model:
   pretrained: 
-    path: /home/dlfgvc/maituoy/11785-FGVC/best_checkpoints/model_best.pth.tar
+    path: /home/dlfgvc/maituoy/11785-FGVC/best_checkpoints/model_best_c12.pth.tar
     pretrain: True
   backbone:
-    name: resnet50
+    name: resnet50_c12
     drop_path: 0.0
   head:
     num_classes: 120

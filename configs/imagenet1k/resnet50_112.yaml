@@ -1,38 +1,38 @@
-exp: resnet50_c1_224
+exp: resnet50_112
 seed: 11785
 use_amp: True
 eval_metric: val_top1
-log_interval: 200
+log_interval: 104
 
 data:
   root: /media/Bootes/dl_fgvc/
   name: imagenet1k
-  image_size: 256
-  input_size: 224
-  batch_size: 64
+  image_size: 128
+  input_size: 112
+  batch_size: 512
   num_workers: 8
 
 train:
-  model_ema: True
+  model_ema: False
   mixup: 0.8
   cutmix: 1.0
   smoothing: 0.1
 
 optim:
   name: adamw
-  lr: 0.004
+  lr: 0.003
   weight_decay: 0.05
   sched: cosine
-  epochs: 300
-  warmup_epochs: 20
+  epochs: 200
+  warmup_epochs: 0
 
 model:
   pretrained: 
     path: None
     pretrain: False
   backbone:
-    name: resnet50_c1
-    drop_path: 0.1
+    name: resnet50
+    drop_path: 0.0
   head:
     num_classes: 1000
 

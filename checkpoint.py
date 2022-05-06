@@ -109,7 +109,7 @@ class CheckpointSaver:
             save_state['arch'] = self.cfg.model
             save_state['args'] = self.cfg
         if self.amp_scaler is not None:
-            save_state['scaler'] = self.amp_scaler
+            save_state['scaler'] = self.amp_scaler.state_dict()
         if metric is not None:
             save_state['metric'] = metric
         torch.save(save_state, save_path)

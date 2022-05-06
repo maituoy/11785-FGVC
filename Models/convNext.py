@@ -118,16 +118,10 @@ class Block(nn.Module):
         x = input + self.drop_path(x)
         return x
 
-def convnext_tiny(pretrained=False,num_classes=120, **kwargs):
-    model = ConvNeXt(depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
-    if pretrained:
-        url = "https://dl.fbaipublicfiles.com/convnext/convnext_tiny_1k_224_ema.pth"
-        checkpoint = torch.hub.load_state_dict_from_url(url=url, map_location="cpu", check_hash=True)
-        model.load_state_dict(checkpoint["model"])
+def convnext_tiny(pretrained=False,num_classes=1000, **kwargs):
 
-    model.head = nn.Linear(768, num_classes)
-    model.head.weight.data.mul_(1)
-    model.head.bias.data.mul_(1)
+    model = ConvNeXt(depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], **kwargs)
+    
     return model
 
 

@@ -1,5 +1,5 @@
-exp: resnet50_c1_224
-seed: 50
+exp: resnet50_224_cub_c1
+seed: 11785
 use_amp: True
 sync_bn: False
 eval_metric: val_top1
@@ -10,7 +10,14 @@ data:
   image_size: 256
   input_size: 224
   batch_size: 16
-  num_workers: 4
+  num_workers: 8
+
+train:
+  model_ema: False
+  cutmix_minmax: None
+  mixup: 0.0
+  cutmix: 0.0
+  smoothing: 0.0
 
 optim:
   name: sgd
@@ -20,16 +27,13 @@ optim:
   epochs: 100
   warmup_epochs: 5
 
-loss:
-  name: 'ce'
-  label_smoothing: 0.0
-
 model:
   pretrained: 
-    path: None
-    pretrain: False
+    path: /home/dlfgvc/maituoy/11785-FGVC/best_checkpoints/model_best_c1.pth.tar
+    pretrain: True
   backbone:
     name: resnet50_c1
+    drop_path: 0.0
   head:
     num_classes: 200
 

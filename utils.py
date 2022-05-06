@@ -148,16 +148,17 @@ def resize_pos_embed(posemb, posemb_new, num_tokens=1, gs_new=()):
     posemb = torch.cat([posemb_tok, posemb_grid], dim=1)
     return posemb
 
-def reduce_tensor(tensor):
+def reduce_tensor(tensor, n):
     rt = tensor.clone()
     dist.all_reduce(rt, op=dist.ReduceOp.SUM)
-    rt /= dist.get_world_size()
+    rt /= n
     return rt
 
 def get_parameter_num(model):
     num_trainable_parameters = 0
     for p in model.parameters():
-        num_trainable_parameters += p.numel()
+        if p.requires_grad:
+            num_trainable_parameters += p.numel()
     return num_trainable_parameters
 
 def update_summary(epoch, train_metrics, eval_metrics, filename, write_header=False):

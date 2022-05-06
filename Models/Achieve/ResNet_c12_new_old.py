@@ -11,9 +11,9 @@ class Bottleneck(nn.Module):
 
         self.expansion = 4
 
-        self.conv1 = nn.Conv2d(dim, dim, kernel_size=7, stride=stride, padding=3, bias=False,  groups=dim)
-        self.bn1 = nn.BatchNorm2d(dim)
-        self.conv2 = nn.Conv2d(dim,  self.expansion*dim, kernel_size=1, stride=1, padding=0, bias=False)
+        self.conv1 = nn.Conv2d(dim,  self.expansion*dim, kernel_size=1, stride=1, padding=0, bias=False)
+        self.bn1 = nn.BatchNorm2d(self.expansion*dim)
+        self.conv2 = nn.Conv2d(self.expansion*dim, self.expansion*dim, kernel_size=3, stride=stride, padding=1, bias=False,  groups=self.expansion*dim)
         self.bn2 = nn.BatchNorm2d(self.expansion*dim)
         self.conv3 = nn.Conv2d(self.expansion*dim, dim, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn3 = nn.BatchNorm2d(dim)
@@ -38,10 +38,10 @@ class Bottleneck(nn.Module):
         x = self.conv3(x)
         x = self.bn3(x)
 
-        if self.downsample is not None:
-            identity = self.downsample(identity)
-
         x = self.drop_path(x) + identity
+
+        if self.downsample is not None:
+            x = self.downsample(x)
         
         x = self.relu(x)
         
@@ -52,6 +52,8 @@ class ResNet(nn.Module):
     def __init__(self, block, dims=[96, 192, 384, 768], num_classes=7000, in_channels=3, drop_path=0.0):
         super().__init__()
 
+
+        self.expansion = 4
         self.depths = [3, 3, 9, 3]
         self.dims = dims
 
@@ -61,12 +63,9 @@ class ResNet(nn.Module):
         drop_path_rates = [x.item() for x in torch.linspace(0, drop_path, sum(self.depths))] 
 
         self.layer1 = self.make_layers(block, 0, drop_path=drop_path_rates[0:self.depths[0]])
-        self.ds1 = nn.Conv2d(self.dims[0], self.dims[1], kernel_size=1, stride=1, bias=False)
-        self.layer2 = self.make_layers(block, 1, drop_path=drop_path_rates[self.depths[0]:sum(self.depths[:2])], stride=2)
-        self.ds2 = nn.Conv2d(self.dims[1], self.dims[2], kernel_size=1, stride=1, bias=False)
-        self.layer3 = self.make_layers(block, 2, drop_path=drop_path_rates[sum(self.depths[:2]):sum(self.depths[:3])], stride=2)
-        self.ds3 = nn.Conv2d(self.dims[2], self.dims[3], kernel_size=1, stride=1, bias=False)
-        self.layer4 = self.make_layers(block, 3, drop_path=drop_path_rates[sum(self.depths[:3]):sum(self.depths[:4])], stride=2)
+        self.layer2 = self.make_layers(block, 1, drop_path=drop_path_rates[self.depths[0]:sum(self.depths[:2])])
+        self.layer3 = self.make_layers(block, 2, drop_path=drop_path_rates[sum(self.depths[:2]):sum(self.depths[:3])])
+        self.layer4 = self.make_layers(block, 3, drop_path=drop_path_rates[sum(self.depths[:3]):sum(self.depths[:4])])
         
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
 
@@ -79,11 +78,8 @@ class ResNet(nn.Module):
         x = self.bn1(x)
 
         x = self.layer1(x)
-        x = self.ds1(x)
         x = self.layer2(x)
-        x = self.ds2(x)
         x = self.layer3(x)
-        x = self.ds3(x)
         x = self.layer4(x)
 
         x = self.avgpool(x)
@@ -97,17 +93,20 @@ class ResNet(nn.Module):
 
         layers = []
 
-        downsample = nn.Sequential(nn.Conv2d(self.dims[layer], self.dims[layer], kernel_size=1, stride=stride, bias=False),
-                                    nn.BatchNorm2d(self.dims[layer]))
-
-        layers.append(block(self.dims[layer], downsample=downsample, stride=stride, drop_path=drop_path[0]))
+        if layer < 3:
+            downsample = nn.Sequential(nn.Conv2d(self.dims[layer], self.dims[layer+1], kernel_size=1, stride=2, bias=False),
+                                   nn.BatchNorm2d(self.dims[layer+1]))
+        else:
+            downsample = None
 
         for i in range(self.depths[layer]-1):
-            layers.append(block(self.dims[layer], downsample=None, drop_path=drop_path[i+1]))
+            layers.append(block(self.dims[layer], drop_path=drop_path[i+1]))
+
+        layers.append(block(self.dims[layer], downsample, drop_path=drop_path[0]))
 
         return nn.Sequential(*layers)
 
-def resnet50_c123_new(num_classes=1000, **kwargs):
+def resnet50_c12_new_old(num_classes=1000, **kwargs):
 
     model = ResNet(Bottleneck, num_classes=num_classes, **kwargs)
 

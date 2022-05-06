@@ -13,7 +13,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def setup4training(model, config):
+def setup4training(model, config, resume_epoch=None, optimizer_state=None, scaler_state=None):
 
     parameters = model.parameters()
 
@@ -26,19 +26,41 @@ def setup4training(model, config):
 
     scaler = torch.cuda.amp.GradScaler(enabled=config.use_amp)
 
-    if config.optim.sched == 'cosine':
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
-                                                         T_max=(config.data.batches * config.optim.epochs)
-                                                         )
+    if resume_epoch is None:
+        if config.optim.sched == 'cosine':
+            scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
+                                                            T_max=(config.data.batches * config.optim.epochs)
+                                                            )
+        else:
+            raise NotImplementedError
+                    
+        if config.optim.warmup_epochs > 0:
+            scheduler = GradualWarmupScheduler(optimizer, 
+                                            multiplier=1, 
+                                            total_epoch=config.optim.warmup_epochs * config.data.batches, 
+                                            after_scheduler=scheduler)
     else:
-        raise NotImplementedError
-                
-    if config.optim.warmup_epochs > 0:
-        scheduler = GradualWarmupScheduler(optimizer, 
-                                           multiplier=1, 
-                                           total_epoch=config.optim.warmup_epochs * config.data.batches, 
-                                           after_scheduler=scheduler)
-
+        optimizer.load_state_dict(optimizer_state)
+        scaler = scaler_state
+        if resume_epoch > config.optim.warmup_epochs:
+            if config.optim.sched == 'cosine':
+                scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
+                                                            T_max=(config.data.batches * (config.optim.epochs - (resume_epoch + 1 - config.optim.warmup_epochs)))
+                                                            )
+            else:
+                raise NotImplementedError
+        else:
+            if config.optim.sched == 'cosine':
+                scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
+                                                            T_max=(config.data.batches * config.optim.epochs)
+                                                            )
+            else:
+                raise NotImplementedError
+            
+            scheduler = GradualWarmupScheduler(optimizer, 
+                                            multiplier=1, 
+                                            total_epoch=(config.optim.warmup_epochs - resume_epoch - 1) * config.data.batches, 
+                                            after_scheduler=scheduler)
     return optimizer, scheduler, scaler
 
 
@@ -56,23 +78,19 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
     for idx, (samples, targets) in enumerate(train_loader):
         last_batch = last_idx == idx
         data_time_m.update(time.time() - end)
-
-        samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
+        samples, targets = samples.cuda(), targets.cuda()
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
-        with torch.cuda.amp.autocast():  
+        with torch.cuda.amp.autocast(enabled=True):  
             outputs = model(samples)
             loss = criterion(outputs, targets)
         
         optimizer.zero_grad()
         scaler.scale(loss).backward()
-
-        for name, param in model.named_parameters():
-            if param.grad is None:
-                print(name)
         scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
         scaler.step(optimizer) 
         scaler.update()
         torch.cuda.synchronize()
@@ -82,15 +100,19 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
           
         if not config.distributed:
             losses_m.update(loss.item(), samples.size(0))
-        else:
-            reduced_loss = reduce_tensor(loss)
-            losses_m.update(reduced_loss.item(), samples.size(0))
+        # else:
+        #     reduced_loss = reduce_tensor(loss)
+        #     losses_m.update(reduced_loss.item(), samples.size(0))
 
         num_updates += 1
         batch_time_m.update(time.time() - end)
 
         if last_batch or idx % config.log_interval == 0:
             lr = optimizer.param_groups[0]['lr']
+
+            if config.distributed:
+                reduced_loss = reduce_tensor(loss.data, config.world_size)
+                losses_m.update(reduced_loss.item(), samples.size(0))
 
             if config.local_rank == 0:
                 logger.info(
@@ -109,9 +131,11 @@ def train_one_epoch(epoch, model, train_loader, optimizer, criterion, scheduler,
                         rate_avg=samples.size(0) * config.world_size / batch_time_m.avg,
                         lr=lr,
                         data_time=data_time_m))
-        scheduler.step() 
+
+        scheduler.step()
+
         end = time.time()
-        torch.cuda.empty_cache()    
+    
     return OrderedDict([('train_loss', losses_m.avg)])
         
 
@@ -131,7 +155,7 @@ def val_one_epoch(model, test_loader, config):
     with torch.no_grad():
         for idx, (samples, targets) in enumerate(test_loader):
             last_batch = last_idx == idx
-            samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
+            samples, targets = samples.cuda(), targets.cuda()
 
             output = model(samples)
 
@@ -139,15 +163,18 @@ def val_one_epoch(model, test_loader, config):
             acc1, acc5 = accuracy(output, targets, topk=(1,5))
 
             if config.distributed:
-                reduced_loss = reduce_tensor(loss)
+                reduced_loss = reduce_tensor(loss.data, config.world_size)
                 
-                acc1 = reduce_tensor(acc1)
-                acc2 = reduce_tensor(acc5)
+                acc1 = reduce_tensor(acc1, config.world_size)
+                acc2 = reduce_tensor(acc5, config.world_size)
+
+            else:
+                reduced_loss = loss.data
 
             torch.cuda.synchronize()
-            losses_m.update(loss.item(), num_steps)
-            top1_m.update(acc1.item(), num_steps)
-            top5_m.update(acc5.item(), num_steps)
+            losses_m.update(reduced_loss.item(), samples.size(0))
+            top1_m.update(acc1.item(), output.size(0))
+            top5_m.update(acc5.item(), output.size(0))
 
             batch_time_m.update(time.time() - end)
             end = time.time()
@@ -163,7 +190,6 @@ def val_one_epoch(model, test_loader, config):
                         log_name, idx, last_idx, batch_time=batch_time_m,
                         loss=losses_m, top1=top1_m, top5=top5_m))
             
-            torch.cuda.empty_cache()
 
     metrics = OrderedDict([('val_loss', losses_m.avg), 
                            ('val_top1', top1_m.avg),
